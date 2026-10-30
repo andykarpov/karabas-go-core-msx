@@ -37,6 +37,7 @@ module msx1
 	input         cas_audio_in,
 	input   [3:0] slot_A,
 	input   [3:0] slot_B,
+	input         fdd_rom_en,   // karabas: the disk ROM of the VY-0010 on (0 for C-BIOS)
 	output  [2:0] mapper_info,
 	// karabas: the BIOS, the firmware ROM, the RAM of slot 3 and the cartridges are in the SRAM
 	// of the board (msx_sram), not in the block RAM and SDRAM of MiSTer; see the map at slots
@@ -393,6 +394,7 @@ slots slots
 	.ram_we(ram_we),
 	.slot_A(slot_A),
 	.slot_B(slot_B),
+	.fdd_rom_en(fdd_rom_en),
 	.mapper_info(mapper_info),
 	.rom_enabled(rom_enabled),
 	.img_mounted(img_mounted),

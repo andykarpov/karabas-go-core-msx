@@ -14,7 +14,8 @@
  karabas-go-notes ft-clk-out-required). HDMI: kg_dcm 5 x clk_vga and its inverse.
 
  Soft switches (the index of the item in the osd of core_minig.json, file items included):
-   0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive)
+   0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
+   disk drive without its ROM)
    5 Disk A (F 0)   6 Video (PAL / NTSC)   7 Joysticks (swap)   8 BIOS (FL 2)   9 Reset
    10 Eject carts
 */
@@ -324,7 +325,8 @@ kg_soft_switches #(.N(11)) soft_switches (
 );
 wire [3:0] sw_mapper_a = sw[1*8 +: 4];
 wire [3:0] sw_mapper_b = sw[3*8 +: 4];
-wire sw_fdd = sw[4*8];
+wire sw_fdd = sw[4*8 +: 2] != 2'd0;
+wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
 wire sw_ntsc = sw[6*8];
 wire sw_joy_swap = sw[7*8];
 wire sw_reset = sw[9*8];
@@ -354,6 +356,7 @@ msx_system msx (
 	.joy_swap(sw_joy_swap),
 	.eject(sw_eject),
 	.fdd(sw_fdd),
+	.fdd_rom_en(sw_fdd_rom),
 	.img_mounted(img_mounted),
 	.img_size(img_size),
 	.img_data_wr(img_data_wr),

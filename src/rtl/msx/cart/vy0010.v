@@ -10,6 +10,7 @@ module vy0010
    input            wr_n,
    input            rd_n,
    input            CS1_n,
+   input            rom_en,  // karabas: the disk ROM answers (0: the FDC registers only, for C-BIOS)
    input            img_mounted,
    input     [31:0] img_size,
    input            img_wp,
@@ -35,7 +36,7 @@ wire r7fff = ~ic4 && addr[2] && addr[1:0] == 2'b11;
 wire romce = addr[15:14] == 2'b01 && ic4 && ~stlsl_n && ~CS1_n;
 wire csfdc = ~ic4 && ~addr[2];
 
-assign d_to_cpu = romce            ? d_from_rom                             : 
+assign d_to_cpu = romce            ? (rom_en ? d_from_rom : 8'hFF)          : 
                   r7ffc   && ~rd_n ? {7'b1111111, ~side_select}             :
                   r7ffd   && ~rd_n ? {m_on, in_use, 4'b1110, ~ds[1], ds[0]} :
                   r7fff   && ~rd_n ? {~drq, ~intrq, type1, type0, 4'b1111}  : 

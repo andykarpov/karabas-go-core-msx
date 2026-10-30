@@ -15,9 +15,10 @@
    is the byte of its lane one clock later;
  - a write slot pulls /WE low and drives MD from the falling edge of its first clock to the
    falling edge of its second clock, so the address is stable half a clock before and after /WE.
- The SRAM is read all the time at addr: dout follows a change of addr within six clocks, which
- is far less than the access of the Z80 (an M1 read takes the data two T-states, 24 clocks, after
- the address). The machine and the loaders hold addr while they read.
+ The SRAM is read all the time at addr: dout follows a change of addr within seven clocks (the
+ port goes through a register first), which is far less than the access of the Z80 (an M1 read
+ takes the data two T-states, 24 clocks, after the address). The machine and the loaders hold
+ addr while they read.
 
  we is a level or a pulse: the rising edge requests one write of din at addr (taken at that
  edge; both must hold until then). A write waits for the next slot, at most two clocks; the
@@ -27,7 +28,7 @@
  aux_din until aux_ack (one clock; with a read aux_dout is the byte then). The slots alternate
  between the machine and the aux port; a slot of the aux port without a request is the
  machine's. With requests all the time, the machine has every other slot: its reads take up to
- eight clocks, a third of a T-state of the Z80; a request of the aux port takes four to six.
+ nine clocks, under a T-state of the Z80 (12); a request of the aux port takes four to six.
 */
 
 module msx_sram (
@@ -67,15 +68,24 @@ reg q_aux = 1'b0;
 reg aux_turn = 1'b0; // the next slot may go to the aux port
 reg aux_busy = 1'b0; // an aux request is in a slot, not acked yet
 
+// the port of the machine through a register: its address is the end of a long path (the T80,
+// the address decoding and the mappers of msx1, 11 levels of logic) and took the clock alone
+reg [21:0] addr_q = 22'd0;
+reg we_q = 1'b0;
+reg [7:0] din_q = 8'd0;
+
 always @(posedge clk) begin
+	addr_q <= addr;
+	we_q <= we;
+	din_q <= din;
 	phase <= ~phase;
-	we_d <= we;
+	we_d <= we_q;
 
 	// a write request: taken at the rising edge of we
-	if (we && !we_d) begin
+	if (we_q && !we_d) begin
 		wr_pend <= 1'b1;
-		wr_addr <= addr;
-		wr_data <= din;
+		wr_addr <= addr_q;
+		wr_data <= din_q;
 	end
 
 	// the requester changes aux_addr / aux_req at the edge where it sees aux_ack: a slot that starts
@@ -114,7 +124,7 @@ always @(posedge clk) begin
 			s_aux <= 1'b1;
 			aux_busy <= 1'b1;
 		end
-		else if (wr_pend && !(we && !we_d)) begin
+		else if (wr_pend && !(we_q && !we_d)) begin
 			MA <= wr_addr[21:1];
 			s_lane <= wr_addr[0];
 			s_we <= 1'b1;
@@ -123,8 +133,8 @@ always @(posedge clk) begin
 			wr_pend <= 1'b0;
 		end
 		else begin
-			MA <= addr[21:1];
-			s_lane <= addr[0];
+			MA <= addr_q[21:1];
+			s_lane <= addr_q[0];
 			s_we <= 1'b0;
 			s_read <= 1'b1;
 		end

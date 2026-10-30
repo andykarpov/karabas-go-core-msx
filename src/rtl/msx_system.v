@@ -51,6 +51,8 @@ module msx_system (
 	input wire joy_swap,
 	input wire eject,          // the cartridges off (a reset as well)
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
+	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
+	                           // INIT of the Philips disk ROM, which needs a real BIOS with BASIC)
 
 	// the file mounter of kg_mcu (IMG_*), slot 0 = the disk of the drive
 	input wire [7:0] img_mounted,
@@ -80,7 +82,7 @@ module msx_system (
 	output wire vdp_hor_active,
 	output wire vdp_vert_active,
 
-	output wire [15:0] audio,  // two's complement
+	output reg [15:0] audio = 16'd0,  // two's complement, registered (the path through the mixer of msx1 is long)
 
 	// SRAM
 	output wire [20:0] MA,
@@ -161,6 +163,7 @@ wire [7:0] sdc_img_mounted;
 wire [63:0] sdc_img_size;
 
 wire [21:0] mem_addr;
+wire [15:0] msx_audio;
 wire mem_we;
 wire [7:0] mem_din, mem_dout;
 
@@ -176,7 +179,7 @@ msx1 msx1 (
 	.vdp_hor_active(vdp_hor_active),
 	.vdp_vert_active(vdp_vert_active),
 	.vdp_pal(pal),
-	.audio(audio),
+	.audio(msx_audio),
 	.ps2_key(ps2_key),
 	.joy0(joy_swap ? joy_b : joy_a),
 	.joy1(joy_swap ? joy_a : joy_b),
@@ -195,6 +198,7 @@ msx1 msx1 (
 	.cas_audio_in(1'b0),
 	.slot_A(slot_a),
 	.slot_B(mapper_b),
+	.fdd_rom_en(fdd_rom_en),
 	.mapper_info(),
 	.mem_addr(mem_addr),
 	.mem_we(mem_we),
@@ -296,6 +300,9 @@ msx_fdd_cache #(.BASE(22'h300000), .MAXSEC(1536)) fdd_cache (
 	.filling(fdd_filling),
 	.filled(fdd_filled)
 );
+
+always @(posedge clk)
+	audio <= msx_audio;
 
 // ------------------------------------------------------------------ SRAM
 

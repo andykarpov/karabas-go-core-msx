@@ -291,6 +291,7 @@ int main(int argc, char **argv) {
 	top->pal = pal;
 	top->joy_l = 0;
 	top->fdd = fdd;
+	top->fdd_rom_en = !getenv("SIM_NO_DISKROM");
 	top->eval();
 	clk_cycles(100);
 	for (auto &r : roms) rom_load(load(r.first.c_str()), r.second);
