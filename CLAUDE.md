@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A port of an MSX1 machine to the Karabas Go, Mini and Mini G boards: Xilinx Spartan-6 XC6SLX25-2, ISE 14.7 (XST). One core, three tops (`src/rtl/karabas_go_top.v` VGA + PCM5102, `karabas_mini_top.v` HDMI + sigma-delta + PCM1808 ADC, `karabas_minig_top.v` HDMI + PCM5102), as in `karabas-go-core-nes` and `karabas-go-core-tsconf`. Mini G is the first target.
 
-Status: Ф0 done (2026-10-30, branch `f0-skeleton`): the machine of MiSTer MSX1 is in `src/rtl/msx` and goes through XST alone (`make msx1-xst`); no board tops yet (Ф1). The plan is `docs/PLAN.md` (Russian): the upstream candidates, the architecture, the phases Ф0..Ф5 and the decisions. Follow its phases and record each decision in its "Решения" section. `docs/UPSTREAM.md`: what was taken from the upstream and what was changed.
+Status: Ф1 in progress (branch `f1-minig`): Mini G top built (26103001, timing met, not tested on hardware); C-BIOS and four cartridge mappers pass in simulation. Go / Mini tops come in Ф4. The plan is `docs/PLAN.md` (Russian): the upstream candidates, the architecture, the phases Ф0..Ф5 and the decisions. Follow its phases and record each decision in its "Решения" section. `docs/UPSTREAM.md`: what was taken from the upstream and what was changed. One branch and one PR per phase, merged at its end.
 
 The main rule of this port: **all file work goes through the MCU firmware** (the OSD, the file loader `FL` items with `autoload`, the file mounter `F` items = `CMD_IMG_*`, bursts). The core has no soft CPU, no IPL, no FAT driver and no OSD menu of its own: only the MSX machine and a thin layer from `kg_mcu` to its interfaces. Do not bring in the SD / FAT / IPL boot of MSX1FPGA or OCM.
 
@@ -21,7 +21,7 @@ Base (variant C, decided 2026-10-30): MiSTer MSX1 (`MiSTer-devel/MSX1_MiSTer`, b
 
 ## Build
 
-- `cd src && make` builds the three boards (`make go`, `mini`, `minig`; steps `minig-xst`, `-impl`, `-core`; `make minig-report` the utilization and timing), the ISE command-line flow, sourcing `/opt/Xilinx/14.7/ISE_DS/settings64.sh`. No `.xise`, no `ipcore_dir`. The boards share `xst/` and `_ngo/` in `src/`: one build at a time.
+- `cd src && make` builds the three boards (`make minig` for now; `go` / `mini` from Ф4; steps `minig-xst`, `-impl`, `-core`; `make minig-report` the utilization and timing), the ISE command-line flow, sourcing `/opt/Xilinx/14.7/ISE_DS/settings64.sh`. No `.xise`, no `ipcore_dir`. The boards share `xst/` and `_ngo/` in `src/`: one build at a time.
 - Inputs per board: `karabas_<board>.prj` (sources, the shared modules as `"../modules/rtl/..."`), `.xst`, `.ut`, `.ucf`. Map / par with cost table `-t 2` by default (`MAP_T_<board>`).
 - Check `*_map.mrp` (LUTs, slices, RAMB16) and `*.par` (timing) after a change. The `.bin` and `.kg*` files are committed as the release.
 - `make msx1-xst` synthesizes the machine alone (`msx1.prj`, `msx1.xst`, `-iobuf NO`) in about a minute; `make msx1-report` prints its LUTs, registers and block RAMs. Use it to check a change of `src/rtl/msx` (errors, the one clock in "Clock Information" of `msx1.syr`, no latches) before a board build.
@@ -32,6 +32,14 @@ Base (variant C, decided 2026-10-30): MiSTer MSX1 (`MiSTer-devel/MSX1_MiSTer`, b
 - `src/rtl/msx`: the machine (`msx1.v` and what it instantiates, see `docs/UPSTREAM.md`). Its memory port `mem_addr` / `mem_we` / `mem_din` / `mem_dout` goes to the SRAM; the map is at the end of `msx1.v` (000000 BIOS, 008000 the ROM of slot 0 page 2, 010000 RAM, 100000 cartridge B, 200000 cartridge A). `spram.v` is the MiSTer `spram` on `kg_spram`. `tape.v` is not in the prj yet (Ф3).
 - `src/roms`: C-BIOS 0.29a (BSD-2, `LICENSE.cbios`) for the `roms` of `core.json`.
 - `src/tools/mif2hex.py`: the `.mif` of the upstream to `$readmemh` files.
+- `src/rtl/msx_system.v` (the machine, `msx_sram`, the loaders by FL slot, `msx_ps2_key`, the joysticks; the unit the simulation runs), `msx_video.v` (frame buffer 256 x 192 x 4 bits -> 640 x 480 at 60 Hz on clk_vga), `karabas_minig_top.v` (clocks, `kg_mcu`, soft switches, the OSD command fifo into clk_vga, `kg_osd_overlay`, `hdmi_tx` of zhdmi, audio). The soft switch indexes are listed at the top of the board top; they must match the `osd` of `core*.json`.
+- `kg_mcu` `FILELOAD_SLOT` (modules branch `msx-core`, not in modules master yet): which FL item a file came from.
+
+## Simulation
+
+- `src/sim/sys/build.sh` builds `sim_sys` (verilator) into `src/sim/build/sys`: `tb_sys.v` = `msx_system` + `msx_video` + a model of the SRAM; the VHDL of the machine becomes Verilog through `ghdl --synth` (`vhdl2v.sh`, its comments list the fixes). `sim_sys --rom FILE:ADDR --cart FILE --frames N --ppm OUT [--every N] [--hash] [--key F:CODES] [--mapper-a N] [--pal]`, run from `src/` (the VY0010 `.hex` path). It loads as the mcu does (ROM loader, file loader), about 0.8 frames per second; C-BIOS reaches its text screen after about 150 frames. `SIM_DBG=1` prints the border colour changes.
+- `src/sim/carts/run_carts.sh` (about 3 minutes, parallel): the test cartridges of `mkcarts.py` (sjasmplus: each maps every bank into 8000 and prints its number, `OK` when all match) against the frame CRCs of `carts.txt`, including one with a wrong mapper that must fail. A change of the machine, the SRAM or the video that changes a CRC: look at the `.ppm` in `src/sim/build/out`, then update `carts.txt`. No commercial ROMs in the repo or the tests.
+- The modules have their own tests (`modules/sim/run_all.sh`).
 
 ## Rules
 
