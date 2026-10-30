@@ -108,7 +108,12 @@ entity vdp18_core is
     blank_n_o     : out std_logic;
     hblank_o      : out std_logic;
     vblank_o      : out std_logic;
-    comp_sync_n_o : out std_logic
+    comp_sync_n_o : out std_logic;
+    -- karabas: for the frame buffer of the boards (msx_video): the pixel enable and the active
+    -- area that col_mux uses for col_o
+    clk_en_5m37_o : out std_logic;
+    hor_active_o  : out std_logic;
+    vert_active_o : out std_logic
   );
 
 end vdp18_core;
@@ -400,5 +405,10 @@ begin
 	 blank_n_o <= '1' when blank_n  else '0';
 	 hblank_o  <= '0' when hblank_n else '1';
 	 vblank_o  <= '0' when vblank_n else '1';
+
+  -- karabas: see the ports
+  clk_en_5m37_o <= '1' when clk_en_5m37_s else '0';
+  hor_active_o  <= '1' when hor_active_s  else '0';
+  vert_active_o <= '1' when vert_active_s else '0';
 
 end struct;

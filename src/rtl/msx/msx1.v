@@ -11,6 +11,12 @@ module msx1
 	output        vsync_n,
 	output        hblank,
 	output        vblank,
+	// karabas: for the frame buffer (msx_video): the colour index of the pixel, its enable
+	// (5.37 MHz) and the active area of the VDP
+	output  [3:0] vdp_col,
+	output        vdp_ce_pix,
+	output        vdp_hor_active,
+	output        vdp_vert_active,
 	input         vdp_pal,
 	output [15:0] audio,
 	input  [10:0] ps2_key,
@@ -38,6 +44,7 @@ module msx1
 	output        mem_we,
 	output  [7:0] mem_din,
 	input   [7:0] mem_dout,
+	input         fw_rom_en,
    
 	input         img_mounted,
 	input  [31:0] img_size,
@@ -160,8 +167,10 @@ ls74 u1_2
 //  -- ROM
 //  -----------------------------------------------------------------------------
 // karabas: the BIOS (32 KB) and the firmware ROM (16 KB) are in the SRAM, see mem_addr below
+// fw_rom_en: the ROM of slot 0 page 2 is there (the logo ROM of C-BIOS, or the last 16 KB of a
+// BIOS file of 48 KB); without it the page reads FF, as a BIOS of 32 KB has it
 wire [7:0] rom_q = mem_dout;
-wire [7:0] fw_rom_q = mem_dout;
+wire [7:0] fw_rom_q = fw_rom_en ? mem_dout : 8'hFF;
 
 //  -----------------------------------------------------------------------------
 //  -- Video RAM 16k
@@ -205,7 +214,11 @@ vdp18_core #(.compat_rgb_g(0)) vdp18
 	.vsync_n_o(vsync_n),
 	.hblank_o(hblank),
 	.vblank_o(vblank),
-	.is_pal_i(vdp_pal)
+	.is_pal_i(vdp_pal),
+	.col_o(vdp_col),                  // karabas: see the ports
+	.clk_en_5m37_o(vdp_ce_pix),
+	.hor_active_o(vdp_hor_active),
+	.vert_active_o(vdp_vert_active)
 );
 
 //  -----------------------------------------------------------------------------
@@ -400,15 +413,17 @@ slots slots
 //  -- karabas: the SRAM map (byte addresses)
 //  -----------------------------------------------------------------------------
 // 000000 BIOS 32 KB (slot 0, 0000-7FFF)      010000 RAM 64 KB (slot 3)
-// 008000 firmware ROM 16 KB (slot 0, 8000)   100000 cartridge B, 200000 cartridge A, 1 MB each
+// 008000 firmware ROM 16 KB (slot 0, 8000-BFFF)   100000 cartridge B, 200000 cartridge A, 1 MB each
 // The cartridges are at the addresses of the MiSTer SDRAM, bit 22 = slot A; a ROM file over 1 MB
 // is cut (the rest is not written). The SRAM is read all the time (msx_sram); a write is a level
 // here, msx_sram writes once at its rising edge.
 wire [21:0] cart_addr = {sdram_addr[22] ? 2'b10 : 2'b01, sdram_addr[19:0]};
 wire        ioctl_cart = ioctl_isROMA | ioctl_isROMB;
-wire        ioctl_mem = ioctl_isBIOS | ioctl_isFWBIOS | (ioctl_cart & ioctl_addr[24:20] == 5'd0);
+// a BIOS file of up to 48 KB: 32 KB of BIOS and 16 KB of the ROM of slot 0 page 2, which follows
+// it in the SRAM
+wire        ioctl_mem = (ioctl_isBIOS & ioctl_addr < 25'hC000) | ioctl_isFWBIOS | (ioctl_cart & ioctl_addr[24:20] == 5'd0);
 
-assign mem_addr = ioctl_isBIOS            ? {7'h00, ioctl_addr[14:0]} :
+assign mem_addr = ioctl_isBIOS            ? {6'h00, ioctl_addr[15:0]} :
                   ioctl_isFWBIOS          ? {8'h02, ioctl_addr[13:0]} :
                   ioctl_isROMA            ? {2'b10, ioctl_addr[19:0]} :
                   ioctl_isROMB            ? {2'b01, ioctl_addr[19:0]} :
