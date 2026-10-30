@@ -32,14 +32,12 @@ module msx1
 	input   [3:0] slot_A,
 	input   [3:0] slot_B,
 	output  [2:0] mapper_info,
-	//SDRAM
-	input   [7:0] sdram_dout,
-	output  [7:0] sdram_din,
-	output [24:0] sdram_addr,
-	output        sdram_we,
-	output        sdram_rd,
-	input         sdram_ready,
-	input   [1:0] sdram_size, 
+	// karabas: the BIOS, the firmware ROM, the RAM of slot 3 and the cartridges are in the SRAM
+	// of the board (msx_sram), not in the block RAM and SDRAM of MiSTer; see the map at slots
+	output [21:0] mem_addr,
+	output        mem_we,
+	output  [7:0] mem_din,
+	input   [7:0] mem_dout,
    
 	input         img_mounted,
 	input  [31:0] img_size,
@@ -55,14 +53,42 @@ module msx1
 	input         sd_din_strobe
 );
 
+// karabas: the wires used before their declaration below (Quartus takes it, XST does not)
+wire u1_2_q;
+wire vdp_int_n;
+wire vdp_n, psg_n, ppi_n, cen_n;
+wire [7:0] d_from_kb;
+wire [7:0] d_from_psg, psg_ioa, psg_iob;
+wire [7:0] d_from_slots;
+wire [15:0] sound_slots; 
+wire [9:0] ay_ch_mix;
+wire [7:0] d_from_vdp;
+wire [7:0] d_from_8255;
+wire [7:0] ppi_out_a, ppi_out_c;
+wire CS1_n, CS01_n, CS12_n, CS2_n;
+wire [3:0] SLTSL_n;
+// karabas: the memory of the slots goes to the SRAM (see the map below)
+wire [24:0] sdram_addr;
+wire        sdram_rd;
+wire        ram_we;
+
 //  -----------------------------------------------------------------------------
 //  -- Audio MIX
 //  -----------------------------------------------------------------------------
 wire  [9:0] audioPSG = ay_ch_mix + {keybeep,5'b00000} + {(cas_audio_in & ~cas_motor),4'b0000};                                        
 wire [15:0] fm       = {2'b0, audioPSG, 4'b0000};
 wire [16:0] audio_mix = {sound_slots[15], sound_slots} + {fm[15], fm};
-wire [15:0] compr[7:0] = '{ {1'b1, audio_mix[13:0], 1'b0}, 16'h8000, 16'h8000, 16'h8000, 16'h7FFF, 16'h7FFF, 16'h7FFF,  {1'b0, audio_mix[13:0], 1'b0}};
-assign audio = compr[audio_mix[16:14]];
+// karabas: the array literal of SystemVerilog as a case (element 0 of '{...} is the last one)
+reg [15:0] compr;
+always @* begin
+	case (audio_mix[16:14])
+		3'd0: compr = {1'b0, audio_mix[13:0], 1'b0};
+		3'd1, 3'd2, 3'd3: compr = 16'h7FFF;
+		3'd4, 3'd5, 3'd6: compr = 16'h8000;
+		default: compr = {1'b1, audio_mix[13:0], 1'b0};
+	endcase
+end
+assign audio = compr;
 
 //  -----------------------------------------------------------------------------
 //  -- Clock generation
@@ -99,7 +125,7 @@ t80pa #(.Mode(0)) T80
 	.RD_n(rd_n),
 	.WR_n(wr_n),
 	.RFSH_n(rfrsh_n),
-	.HALT_n(1),
+	.HALT_n(), // karabas: an output of t80pa, upstream tied it to 1
 	.BUSAK_n(),
 	.A(a),
 	.DI(d_to_cpu),
@@ -115,42 +141,27 @@ ls74 u1_1
 (
    .clr(exwait_n),
    .pre(u1_2_q),
-   .clk(clk_en_3m58_p),
+   .clk(clk), // karabas: clk_en_3m58_p was the clock, see ls74.v
+   .ce(clk_en_3m58_p),
    .d(m1_n),
    .q(wait_n)
 );
 
-wire u1_2_q;
 ls74 u1_2
 (
    .clr(1),
    .pre(exwait_n),
-   .clk(clk_en_3m58_p),
+   .clk(clk), // karabas: clk_en_3m58_p was the clock, see ls74.v
+   .ce(clk_en_3m58_p),
    .d(wait_n),
    .q(u1_2_q)
 );
 //  -----------------------------------------------------------------------------
 //  -- ROM
 //  -----------------------------------------------------------------------------
-wire [7:0] rom_q;
-spram #(.addr_width(15), .mem_init_file("rtl/rom/cbios_main_msx1_eu.mif"), .mem_name("ROM")) rom
-(   
-	.clock(clk),
-	.address(ioctl_isBIOS ? ioctl_addr[14:0] : a[14:0]),
-	.q(rom_q),
-	.wren(ioctl_isBIOS),
-	.data(ioctl_dout)
-);
-
-wire [7:0] fw_rom_q;
-spram #(.addr_width(14), .mem_name("FWROM")) fw_rom
-(   
-	.clock(clk),
-	.address(ioctl_isFWBIOS ? ioctl_addr[13:0] : a[13:0]),
-	.q(fw_rom_q),
-	.wren(ioctl_isFWBIOS),
-	.data(ioctl_dout)
-);
+// karabas: the BIOS (32 KB) and the firmware ROM (16 KB) are in the SRAM, see mem_addr below
+wire [7:0] rom_q = mem_dout;
+wire [7:0] fw_rom_q = mem_dout;
 
 //  -----------------------------------------------------------------------------
 //  -- Video RAM 16k
@@ -171,8 +182,6 @@ spram #(.addr_width(14),.mem_name("VRAM")) vram
 //  -----------------------------------------------------------------------------
 //  -- TMS9928A Video Display Processor
 //  -----------------------------------------------------------------------------
-wire [7:0] d_from_vdp;
-wire vdp_int_n;
 vdp18_core #(.compat_rgb_g(0)) vdp18
 (
 	.clk_i(clk),
@@ -202,7 +211,6 @@ vdp18_core #(.compat_rgb_g(0)) vdp18
 //  -----------------------------------------------------------------------------
 //  -- IO Decoder
 //  -----------------------------------------------------------------------------
-wire vdp_n, psg_n, ppi_n, cen_n;
 io_decoder io_decoder
 (
 	.addr(a),
@@ -217,8 +225,6 @@ io_decoder io_decoder
 //  -----------------------------------------------------------------------------
 //  -- 82C55 PPI
 //  -----------------------------------------------------------------------------
-wire [7:0] d_from_8255;
-wire [7:0] ppi_out_a, ppi_out_c;
 wire keybeep = ppi_out_c[7];
 assign cas_motor =  ppi_out_c[4];
 jt8255 PPI
@@ -244,10 +250,9 @@ jt8255 PPI
 //  -----------------------------------------------------------------------------
 //  -- Memory mapper
 //  -----------------------------------------------------------------------------
-wire CS1_n, CS01_n, CS12_n, CS2_n;
-wire [3:0] SLTSL_n;
 memory_mapper memory_mapper
 (
+	.clk(clk), // karabas
 	.reset(reset),
 	.addr(a),
 	.ppi_n(ppi_n),
@@ -278,7 +283,6 @@ assign d_to_cpu = ~(CS01_n | SLTSL_n[0]) ? rom_q :
 //  -----------------------------------------------------------------------------
 //  -- Keyboard decoder
 //  -----------------------------------------------------------------------------
-wire [7:0] d_from_kb;
 keyboard msx_key
 (
 	.reset_n_i(~reset),
@@ -291,20 +295,19 @@ keyboard msx_key
 //  -----------------------------------------------------------------------------
 //  -- Sound AY-3-8910
 //  -----------------------------------------------------------------------------
-wire [7:0] d_from_psg, psg_ioa, psg_iob;
 wire [5:0] joy_a = psg_iob[4] ? 6'b111111 : {~joy0[5], ~joy0[4], ~joy0[0], ~joy0[1], ~joy0[2], ~joy0[3]};
 wire [5:0] joy_b = psg_iob[5] ? 6'b111111 : {~joy1[5], ~joy1[4], ~joy1[0], ~joy1[1], ~joy1[2], ~joy1[3]};
 wire [5:0] joyA = joy_a & {psg_iob[0], psg_iob[1], 4'b1111};
 wire [5:0] joyB = joy_b & {psg_iob[2], psg_iob[3], 4'b1111};
 assign psg_ioa = {cas_audio_in,1'b0, psg_iob[6] ? joyB : joyA};
-wire [9:0] ay_ch_mix;
 
 wire u21_1_q;
 ls74 u21_1
 (
    .clr(!psg_n),
    .pre(1),
-   .clk(clk_en_3m58_p),
+   .clk(clk), // karabas: clk_en_3m58_p was the clock, see ls74.v
+   .ce(clk_en_3m58_p),
    .d(!psg_n),
    .q(u21_1_q)
 );
@@ -314,7 +317,8 @@ ls74 u21_2
 (
    .clr(!psg_n),
    .pre(1),
-   .clk(clk_en_3m58_p),
+   .clk(clk), // karabas: clk_en_3m58_p was the clock, see ls74.v
+   .ce(clk_en_3m58_p),
    .d(u21_1_q),
    .q(u21_2_q)
 );
@@ -345,8 +349,6 @@ jt49_bus PSG
 //  -----------------------------------------------------------------------------
 //  -- SLOTS
 //  -----------------------------------------------------------------------------
-wire [7:0] d_from_slots;
-wire [15:0] sound_slots; 
 slots slots
 (
 	.clk(clk),
@@ -368,13 +370,14 @@ slots slots
 	.ioctl_isROMA(ioctl_isROMA),
 	.ioctl_isROMB(ioctl_isROMB),
 	.ioctl_wait(ioctl_wait),
-	.sdram_dout(sdram_dout),
-	.sdram_din(sdram_din),
+	.sdram_dout(mem_dout),
+	.sdram_din(),
 	.sdram_addr(sdram_addr),
-	.sdram_we(sdram_we),
+	.sdram_we(),
 	.sdram_rd(sdram_rd),
-	.sdram_ready(sdram_ready),
-	.sdram_size(sdram_size),
+	.sdram_ready(1'b1),
+	.sdram_size(2'b01),
+	.ram_we(ram_we),
 	.slot_A(slot_A),
 	.slot_B(slot_B),
 	.mapper_info(mapper_info),
@@ -392,5 +395,28 @@ slots slots
 	.sd_buff_wr(sd_buff_wr),
 	.sd_din_strobe(sd_din_strobe)
 );
+
+//  -----------------------------------------------------------------------------
+//  -- karabas: the SRAM map (byte addresses)
+//  -----------------------------------------------------------------------------
+// 000000 BIOS 32 KB (slot 0, 0000-7FFF)      010000 RAM 64 KB (slot 3)
+// 008000 firmware ROM 16 KB (slot 0, 8000)   100000 cartridge B, 200000 cartridge A, 1 MB each
+// The cartridges are at the addresses of the MiSTer SDRAM, bit 22 = slot A; a ROM file over 1 MB
+// is cut (the rest is not written). The SRAM is read all the time (msx_sram); a write is a level
+// here, msx_sram writes once at its rising edge.
+wire [21:0] cart_addr = {sdram_addr[22] ? 2'b10 : 2'b01, sdram_addr[19:0]};
+wire        ioctl_cart = ioctl_isROMA | ioctl_isROMB;
+wire        ioctl_mem = ioctl_isBIOS | ioctl_isFWBIOS | (ioctl_cart & ioctl_addr[24:20] == 5'd0);
+
+assign mem_addr = ioctl_isBIOS            ? {7'h00, ioctl_addr[14:0]} :
+                  ioctl_isFWBIOS          ? {8'h02, ioctl_addr[13:0]} :
+                  ioctl_isROMA            ? {2'b10, ioctl_addr[19:0]} :
+                  ioctl_isROMB            ? {2'b01, ioctl_addr[19:0]} :
+                  ~(CS01_n | SLTSL_n[0])  ? {7'h00, a[14:0]} :
+                  ~(CS2_n  | SLTSL_n[0])  ? {8'h02, a[13:0]} :
+                  ~SLTSL_n[3]             ? {6'h01, a} :
+                                            cart_addr;
+assign mem_we  = ioctl_download ? ioctl_wr & ioctl_mem : ram_we;
+assign mem_din = ioctl_download ? ioctl_dout : d_from_cpu;
 
 endmodule

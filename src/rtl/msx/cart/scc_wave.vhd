@@ -310,7 +310,7 @@ begin
                 ("011" & ff_ptr_ch_d)   when( ff_ch_num = "011" )else
                 ("100" & ff_ptr_ch_e);
 
-    wavemem : work.ram
+    wavemem : entity work.ram -- karabas: "entity" (Quartus takes it without, XST does not)
     port map(
         adr => w_wave_adr   ,
         clk => clk21m       ,
@@ -383,7 +383,7 @@ begin
 
     w_wave  <=  (w_ch_mask and ff_wave_dat);        -- 8bit ��̕␔
 
-    u_mul: work.scc_wave_mul
+    u_mul: entity work.scc_wave_mul -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
         a   => w_wave   ,   -- 8bit ��̕␔
         b   => w_ch_vol ,   -- 4bit �o�C�i���i���������j

@@ -17,7 +17,8 @@ reg  [7:0] bank0, bank1;
 wire [7:0] mask = rom_size[20:13] - 1'd1;
 wire [7:0] sram_mask = rom_size[20:13] > 8'h10 ? rom_size[20:13] : 8'h10;
 
-always @(posedge reset, posedge clk) begin
+// karabas: a synchronous reset (bank0 was reset asynchronously to a value of r_type: latches in XST)
+always @(posedge clk) begin
    if (reset) begin
       bank0 <= r_type ? 8'h0f : 8'h00;
       bank1 <= 8'h00;

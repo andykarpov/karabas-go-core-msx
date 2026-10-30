@@ -20,6 +20,7 @@ module slots (
 	ioctl_isROMB,
 	ioctl_wait,
 	sdram_dout,
+	ram_we,
 	sdram_din,
 	sdram_addr,
 	sdram_we,
@@ -70,6 +71,8 @@ module slots (
 	output wire sdram_rd;
 	input sdram_ready;
 	input [1:0] sdram_size;
+	// karabas: the write of the RAM of slot 3 (in the SRAM, see msx1)
+	output wire ram_we;
 	input img_mounted;
 	input [31:0] img_size;
 	input img_wp;
@@ -124,7 +127,8 @@ module slots (
 	wire ram_ready_B;
 	assign ram_ready_B = (sdram_size == 0 ? 1'b1 : sdram_ready);
 	reg last_loadRom;
-	always @(posedge ioctl_isROMA or posedge ioctl_isROMB) begin
+	// karabas: on clk (the loads were the clocks of this register)
+	always @(posedge clk) begin
 		if (ioctl_isROMA)
 			last_loadRom <= 0;
 		if (ioctl_isROMB)
@@ -218,24 +222,9 @@ module slots (
 		.detected_mapper(detected_mapper_B),
 		.rom_enabled(rom_enabled[1])
 	);
-	spram #(
-		.addr_width(16),
-		.mem_name("RAM")
-	) ram(
-		.clock(clk),
-		.address(addr[15:0]),
-		.q(ram_q),
-		.data(d_from_cpu),
-		.wren(~(SLTSL_n[3] | wr_n))
-	);
-	spram #(
-		.addr_width(18),
-		.mem_name("SLOTROM")
-	) rom_cart(
-		.clock(clk),
-		.address(bram_addr),
-		.wren(bram_we & (bram_addr < 24'h020000)),
-		.q(bram_dout),
-		.data(bram_din)
-	);
+	// karabas: the RAM of slot 3 is in the SRAM (msx1 puts it at 010000), the ROM of a cartridge
+	// too (MiSTer without SDRAM had slot B in 256 KB of block RAM: sdram_size is 1 here)
+	assign ram_q = sdram_dout;
+	assign ram_we = ~(SLTSL_n[3] | wr_n);
+	assign bram_dout = 8'hff;
 endmodule

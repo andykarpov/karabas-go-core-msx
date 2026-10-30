@@ -20,8 +20,8 @@ always @(posedge clk) begin
     last_isROM = ioctl_isROM;
 end
 
+reg [7:0] a0,a1,a2; // karabas: out of the always block (XST takes no declarations in an unnamed block)
 always @(posedge clk) begin
-reg [7:0] a0,a1,a2;
 
     if (ioctl_isROM && ~last_isROM) begin
         asc16 <= 0;

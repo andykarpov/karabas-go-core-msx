@@ -189,7 +189,7 @@ begin
   -----------------------------------------------------------------------------
   -- Clock Generator
   -----------------------------------------------------------------------------
-  clk_gen_b : work.vdp18_clk_gen
+  clk_gen_b : entity work.vdp18_clk_gen -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       clk_i         => clk_i,
       clk_en_10m7_i => clk_en_10m7_i,
@@ -202,7 +202,7 @@ begin
   -----------------------------------------------------------------------------
   -- Horizontal and Vertical Timing Generator
   -----------------------------------------------------------------------------
-  hor_vert_b : work.vdp18_hor_vert    
+  hor_vert_b : entity work.vdp18_hor_vert -- karabas: "entity" (Quartus takes it without, XST does not)    
     port map (
       clk_i         => clk_i,
       clk_en_5m37_i => clk_en_5m37_s,
@@ -227,7 +227,7 @@ begin
   -----------------------------------------------------------------------------
   -- Control Module
   -----------------------------------------------------------------------------
-  ctrl_b : work.vdp18_ctrl
+  ctrl_b : entity work.vdp18_ctrl -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       clk_i         => clk_i,
       clk_en_5m37_i => clk_en_5m37_s,
@@ -250,7 +250,7 @@ begin
   -----------------------------------------------------------------------------
   -- CPU I/O Module
   -----------------------------------------------------------------------------
-  cpu_io_b : work.vdp18_cpuio
+  cpu_io_b : entity work.vdp18_cpuio -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       clk_i         => clk_i,
       clk_en_10m7_i => clk_en_10m7_s,
@@ -291,7 +291,7 @@ begin
   -----------------------------------------------------------------------------
   -- VRAM Address Multiplexer
   -----------------------------------------------------------------------------
-  addr_mux_b : work.vdp18_addr_mux
+  addr_mux_b : entity work.vdp18_addr_mux -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       access_type_i => access_type_s,
       opmode_i      => opmode_s,
@@ -315,7 +315,7 @@ begin
   -----------------------------------------------------------------------------
   -- Pattern Generator
   -----------------------------------------------------------------------------
-  pattern_b : work.vdp18_pattern
+  pattern_b : entity work.vdp18_pattern -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       clk_i         => clk_i,
       clk_en_5m37_i => clk_en_5m37_s,
@@ -338,7 +338,7 @@ begin
   -----------------------------------------------------------------------------
   -- Sprite Generator
   -----------------------------------------------------------------------------
-  sprite_b : work.vdp18_sprite
+  sprite_b : entity work.vdp18_sprite -- karabas: "entity" (Quartus takes it without, XST does not)
     port map (
       clk_i         => clk_i,
       clk_en_5m37_i => clk_en_5m37_s,
@@ -368,7 +368,7 @@ begin
   -----------------------------------------------------------------------------
   -- Color Multiplexer
   -----------------------------------------------------------------------------
-  col_mux_b : work.vdp18_col_mux
+  col_mux_b : entity work.vdp18_col_mux -- karabas: "entity" (Quartus takes it without, XST does not)
     generic map (
       compat_rgb_g  => compat_rgb_g
     )

@@ -99,9 +99,12 @@ module wd1793 (
 	wire [7:0] buff_dout;
 	reg format;
 	wire wre = wr & io_en;
+	// karabas: buff_wr and spt_addr were declared in the generate blocks of RWMODE / EDSK and used
+	// outside them by their short names (Quartus takes it, XST does not): declared here
+	reg buff_wr;
+	reg [7:0] spt_addr;
 	generate
 		if (RWMODE) begin : genblk1
-			reg buff_wr;
 			wd1793_dpram sbuf(
 				.clock(clk_sys),
 				.address_a({sd_block, sd_buff_addr}),
@@ -635,7 +638,6 @@ module wd1793 (
 			wire [7:0] scan_data = (RWMODE ? buff_dout : input_data);
 			reg [53:0] edsk [0:1991];
 			reg [7:0] spt [0:165];
-			reg [7:0] spt_addr;
 			always @(posedge clk_sys) begin
 				{edsk_track, edsk_side, edsk_trackf, edsk_sidef, edsk_sector, edsk_sizecode, edsk_offset} <= edsk[edsk_addr];
 				edsk_spt <= spt[spt_addr];

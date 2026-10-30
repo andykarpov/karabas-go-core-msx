@@ -128,9 +128,12 @@ begin
   -- Purpose:
   --   Implements the horizontal and vertical counters.
   --
-  counters: process (clk_i, reset_i, first_line_s)
+  -- karabas: a synchronous reset: cnt_vert_q was reset asynchronously to first_line_s, which
+  -- depends on is_pal_i, and XST builds latches for that (a reset lasts many clocks)
+  counters: process (clk_i)
   begin
-    if reset_i then
+    if clk_i'event and clk_i = '1' then
+     if reset_i then
       cnt_hor_q  <= hv_first_pix_text_c;
       cnt_vert_q <= first_line_s;
       hsync_n_o  <= '1';
@@ -138,8 +141,7 @@ begin
       hblank_q   <= false;
       vblank_q   <= false;
 
-    elsif clk_i'event and clk_i = '1' then
-      if clk_en_5m37_i then
+     elsif clk_en_5m37_i then
         -- The horizontal counter ---------------------------------------------
         if cnt_hor_q = last_pix_s then
           cnt_hor_q  <= first_pix_s;

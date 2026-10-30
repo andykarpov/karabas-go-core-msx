@@ -43,23 +43,29 @@ assign d_to_cpu = romce            ? d_from_rom                             :
                                      8'hFF;
 
 wire wr7ffc = r7ffc & ~wr_n;
-always @(posedge reset, posedge wr7ffc) begin
+wire wr7ffd = r7ffd & ~wr_n;
+// karabas: the registers on clk at the start of the write (its strobe and reset were their clocks)
+reg wr7ffc_d = 1'b0, wr7ffd_d = 1'b0;
+always @(posedge clk) begin
+   wr7ffc_d <= wr7ffc;
+   wr7ffd_d <= wr7ffd;
+end
+always @(posedge clk) begin
    if (reset) begin
       side_select <= 1'b0;
-   end else begin
+   end else if (wr7ffc & ~wr7ffc_d) begin
       if (~stlsl_n) begin
          side_select <= d_from_cpu[0];
       end
    end
 end
 
-wire wr7ffd = r7ffd & ~wr_n;
-always @(posedge reset, posedge wr7ffd) begin
+always @(posedge clk) begin
    if (reset) begin
       m_on        <= 1'b0;
       in_use      <= 1'b0;
       ds          <= 2'b00;
-   end else begin
+   end else if (wr7ffd & ~wr7ffd_d) begin
       if (~stlsl_n) begin
          ds[0]  <=  d_from_cpu[0];
          ds[1]  <= ~d_from_cpu[1];     
@@ -113,11 +119,12 @@ wd1793 #(.RWMODE(1), .EDSK(0)) fdc
 
 wire [7:0] d_from_rom;
 
-spram #(.addr_width(14), .mem_init_file("rtl/rom/vy0010.mif"), .mem_name("VY0010ROM")) vy0010_rom
+spram #(.addr_width(14), .mem_init_file("rtl/msx/rom/vy0010.hex"), .mem_name("VY0010ROM")) vy0010_rom
 (
    .clock(clk),
    .address(addr[13:0]),
-   .wren(0),
+   .wren(1'b0),
+   .data(8'h00), // karabas: the ROM as spram.v, the .mif as .hex
    .q(d_from_rom)
 );
 
