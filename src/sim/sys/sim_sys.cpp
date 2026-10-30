@@ -256,7 +256,7 @@ int main(int argc, char **argv) {
 		else if (a == "--pal") pal = true;
 		else if (a == "--disk") { disk = load(next().c_str()); fdd = true; }
 		else if (a == "--fdd-latency") fdd_latency = atof(next().c_str()) * 42857;
-		else if (a == "--fdd-drop") fdd_drop = atoi(next().c_str());
+		else if (a == "--fdd-drop") { fdd_drop = atoi(next().c_str()); if (!fdd_drop) fdd_drop = -1; }
 		else if (a == "--save-disk") save_disk = next();
 		else if (a == "--frames") nframes = atoi(next().c_str());
 		else if (a == "--ppm") ppm = next();
