@@ -78,8 +78,15 @@ end
 wire [7:0] d_from_wd;
 wire drq, intrq;
 reg img_load;
+// karabas: a single sided image (360 KB or less) has no side 1 between the tracks: layout 1 of
+// wd1793 (side-track-sector) puts track t of side 0 at t * 9 sectors there; layout 0
+// (track-side-sector, 720 KB) put it at 2t * 9 and every track after 0 was read wrong
+reg img_ss = 1'b0;
 
-always @(posedge clk) if(img_mounted) img_load <= |img_size;
+always @(posedge clk) if(img_mounted) begin
+   img_load <= |img_size;
+   img_ss <= img_size <= 32'd368640;
+end
 wire fdd_ready = img_load & ~ds[0] & ds[1];
 
 wd1793 #(.RWMODE(1), .EDSK(0)) fdc
@@ -96,7 +103,7 @@ wd1793 #(.RWMODE(1), .EDSK(0)) fdc
    .drq(drq),
    .intrq(intrq),
    .ready(fdd_ready),
-   .layout(1'b0),
+   .layout(img_ss),           // karabas: see img_ss
    .size_code(3'h2),
    .side(side_select),
    .img_mounted(img_mounted),

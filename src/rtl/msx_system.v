@@ -16,6 +16,9 @@
    page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there).
    The machine is in reset while a file loads, as MiSTer has it. A cartridge is on from its load
    until eject.
+ The disk drive (fdd: slot 1 is the Philips VY-0010 with its WD1793 and disk ROM in place of
+ cartridge A): the .dsk image of the F item, slot 0 of the file mounter, through img_sdc and
+ msx_fdd_img (sectors of 512 bytes from the firmware, 5-15 ms each).
  The mapper of a cartridge: mapper_a / mapper_b, the values of MiSTer (0 auto, 1 none,
  2 Game Master 2, 3 Konami, 4 Konami SCC, 5 ASCII 8, 6 ASCII 16, 7 linear 64K, 8 R-Type; the OSD offers 0-7, eight options at most); a change
  resets the machine.
@@ -46,6 +49,21 @@ module msx_system (
 	input wire pal,
 	input wire joy_swap,
 	input wire eject,          // the cartridges off (a reset as well)
+	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
+
+	// the file mounter of kg_mcu (IMG_*), slot 0 = the disk of the drive
+	input wire [7:0] img_mounted,
+	input wire [63:0] img_size,
+	input wire img_data_wr,
+	input wire [8:0] img_data_addr,
+	input wire [7:0] img_data,
+	input wire img_result_wr,
+	input wire [7:0] img_result,
+	input wire [15:0] img_sum,
+	output wire img_q_wr,
+	output wire [23:0] img_q_di,
+	input wire img_q_ack,
+	output wire fdd_active,    // a sector is being transferred (a LED)
 
 	// input
 	input wire [7:0] kb_scancode,
@@ -101,11 +119,14 @@ always @(posedge clk) begin
 		fw_rom_en <= 1'b1;
 end
 
+// slot A of MiSTer: 9 is the disk drive
+wire [3:0] slot_a = fdd ? 4'd9 : mapper_a;
+
 reg [7:0] mappers_d = 8'd0;
 reg mapper_reset = 1'b0;
 always @(posedge clk) begin
-	mappers_d <= { mapper_b, mapper_a };
-	mapper_reset <= mappers_d != { mapper_b, mapper_a };
+	mappers_d <= { mapper_b, slot_a };
+	mapper_reset <= mappers_d != { mapper_b, slot_a };
 end
 
 wire msx_reset = reset || rom_active || ioctl_download || mapper_reset || eject;
@@ -126,6 +147,15 @@ wire [5:0] joy_a = { joy_l[7], joy_l[6], joy_l[1], joy_l[2], joy_l[3], joy_l[4] 
 wire [5:0] joy_b = { joy_r[7], joy_r[6], joy_r[1], joy_r[2], joy_r[3], joy_r[4] };
 
 // ------------------------------------------------------------------ the machine
+
+// the disk drive (see below)
+wire [31:0] sd_lba;
+wire sd_rd, sd_wr, sd_ack, sd_buff_wr;
+wire [8:0] sd_buff_addr;
+wire [7:0] sd_buff_dout, sd_buff_din;
+
+wire [7:0] sdc_img_mounted;
+wire [63:0] sdc_img_size;
 
 wire [21:0] mem_addr;
 wire mem_we;
@@ -160,7 +190,7 @@ msx1 msx1 (
 	.rom_enabled(rom_enabled),
 	.cas_motor(),
 	.cas_audio_in(1'b0),
-	.slot_A(mapper_a),
+	.slot_A(slot_a),
 	.slot_B(mapper_b),
 	.mapper_info(),
 	.mem_addr(mem_addr),
@@ -168,19 +198,87 @@ msx1 msx1 (
 	.mem_din(mem_din),
 	.mem_dout(mem_dout),
 	.fw_rom_en(fw_rom_en),
-	// the disk drive: Ф2 (img_sdc)
-	.img_mounted(1'b0),
-	.img_size(32'd0),
-	.img_wp(1'b1),
-	.sd_lba(),
-	.sd_rd(),
-	.sd_wr(),
-	.sd_ack(1'b0),
-	.sd_buff_addr(9'd0),
-	.sd_buff_dout(8'd0),
-	.sd_buff_din(),
-	.sd_buff_wr(1'b0),
+	// the disk drive: img_sdc through msx_fdd_img (the firmware opens the image read-write
+	// when it can and gives no write protect)
+	.img_mounted(sdc_img_mounted[0]),
+	.img_size(sdc_img_size[31:0]),
+	.img_wp(1'b0),
+	.sd_lba(sd_lba),
+	.sd_rd(sd_rd),
+	.sd_wr(sd_wr),
+	.sd_ack(sd_ack),
+	.sd_buff_addr(sd_buff_addr),
+	.sd_buff_dout(sd_buff_dout),
+	.sd_buff_din(sd_buff_din),
+	.sd_buff_wr(sd_buff_wr),
 	.sd_din_strobe(1'b0)
+);
+
+// ------------------------------------------------------------------ the disk drive
+
+wire fdd_sdc_rd, fdd_sdc_wr;
+wire [31:0] sdc_sector;
+wire sdc_busy, sdc_done, sdc_byte_in_strobe;
+wire [2:0] sdc_slot;
+wire [8:0] sdc_byte_addr;
+wire [7:0] sdc_byte_in_data, sdc_byte_out_data;
+
+// no reset: a reset of the machine during a request leaves img_sdc to finish it (msx_fdd_img
+// waits for its end); a request that gets no answer ends after the timeout
+img_sdc #(
+	.OUT_LATENCY(3),
+	.TIMEOUT(24'd8571429)   // 200 ms at 42.857 MHz
+) sdc (
+	.clk(clk),
+	.reset(1'b0),
+	.img_mounted(img_mounted),
+	.img_size(img_size),
+	.img_data_wr(img_data_wr),
+	.img_data_addr(img_data_addr),
+	.img_data(img_data),
+	.img_result_wr(img_result_wr),
+	.img_result(img_result),
+	.img_sum(img_sum),
+	.img_q_wr(img_q_wr),
+	.img_q_di(img_q_di),
+	.img_q_ack(img_q_ack),
+	.sdc_img_mounted(sdc_img_mounted),
+	.sdc_img_size(sdc_img_size),
+	.sdc_rd({ 7'd0, fdd_sdc_rd }),
+	.sdc_wr({ 7'd0, fdd_sdc_wr }),
+	.sdc_sector(sdc_sector),
+	.sdc_busy(sdc_busy),
+	.sdc_done(sdc_done),
+	.sdc_error(),
+	.sdc_slot(sdc_slot),
+	.sdc_byte_in_strobe(sdc_byte_in_strobe),
+	.sdc_byte_addr(sdc_byte_addr),
+	.sdc_byte_in_data(sdc_byte_in_data),
+	.sdc_byte_out_data(sdc_byte_out_data),
+	.active(fdd_active)
+);
+
+msx_fdd_img fdd_img (
+	.clk(clk),
+	.reset(1'b0),
+	.sd_rd(sd_rd),
+	.sd_wr(sd_wr),
+	.sd_lba(sd_lba),
+	.sd_ack(sd_ack),
+	.sd_buff_addr(sd_buff_addr),
+	.sd_buff_dout(sd_buff_dout),
+	.sd_buff_wr(sd_buff_wr),
+	.sd_buff_din(sd_buff_din),
+	.sdc_rd(fdd_sdc_rd),
+	.sdc_wr(fdd_sdc_wr),
+	.sdc_sector(sdc_sector),
+	.sdc_busy(sdc_busy),
+	.sdc_done(sdc_done),
+	.sdc_slot(sdc_slot),
+	.sdc_byte_in_strobe(sdc_byte_in_strobe),
+	.sdc_byte_addr(sdc_byte_addr),
+	.sdc_byte_in_data(sdc_byte_in_data),
+	.sdc_byte_out_data(sdc_byte_out_data)
 );
 
 // ------------------------------------------------------------------ SRAM
