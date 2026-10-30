@@ -76,3 +76,5 @@ make_core.py
 
 # upstream clones and simulation builds (docs/PLAN.md, Ф0)
 src/sim/build/
+!src/msx1.prj
+!src/msx1.xst
