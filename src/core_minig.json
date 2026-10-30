@@ -1,7 +1,7 @@
 {
     "id": "msx",
     "name": "MSX1",
-    "build": "26103001",
+    "build": "26103002",
     "bitstream": "karabas_minig.bin",
     "visible": true,
     "type": "osd",
@@ -16,6 +16,8 @@
         {"type": "S", "name": "Mapper A", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0},
         {"type": "FL", "name": "Cart B", "slot": 1, "extensions": ".rom,.mx1,.mx2,.bin", "dir": "/msx", "hotkey": "Menu+F2"},
         {"type": "S", "name": "Mapper B", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0},
+        {"type": "S", "name": "Slot 1", "options": ["Cartridge A", "Disk drive", "Disk (no ROM)"], "default": 0, "hotkey": "Menu+D"},
+        {"type": "F", "name": "Disk A", "slot": 0, "extensions": ".dsk", "dir": "/msx", "hotkey": "Menu+F3"},
         {"type": "S", "name": "Video", "options": ["PAL 50Hz", "NTSC 60Hz"], "default": 0, "hotkey": "Menu+V"},
         {"type": "S", "name": "Joysticks", "options": ["Normal", "Swap"], "default": 0, "hotkey": "Menu+J"},
         {"type": "FL", "name": "BIOS", "slot": 2, "extensions": ".rom", "dir": "/msx", "autoload": 1},

@@ -23,10 +23,10 @@
 | `cv_clock.vhd` | VHDL | 3,58 МГц из 10,7 МГц | нет |
 | `io_decoder.v`, `memory_mapper.v` | Verilog | порты I/O, первичные слоты | `memory_mapper`: регистр `enable` на `clk` |
 | `ls74.v` (был `.sv`) | SV → свой Verilog | 74LS74 для WAIT и строба PSG | переписан на `clk` с enable (upstream тактировался `clk_en_3m58_p`) |
-| `slots.v` (`sv2v`) | SV | слоты 1–3, картриджи A / B, FDD | RAM слота 3 и ROM картриджа — в SRAM; `last_loadRom` на `clk` |
-| `cart/rom.v`, `rom_detect.v`, мапперы (`konami`, `konami_scc`, `ascii8`, `ascii16`, `gamemaster2`) | Verilog | картридж, автоопределение маппера по потоку загрузки | `rom_detect`: `reg` из always наружу; `ascii16`: синхронный сброс |
+| `slots.v` (`sv2v`) | SV | слоты 1–3, картриджи A / B, FDD | RAM слота 3 и ROM картриджа — в SRAM; `last_loadRom` на `clk`; вход `fdd_rom_en` |
+| `cart/rom.v`, `rom_detect.v`, мапперы (`konami`, `konami_scc`, `ascii8`, `ascii16`, `gamemaster2`) | Verilog | картридж, автоопределение маппера по потоку загрузки | `rom_detect`: `reg` из always наружу, конвейер счётчиков, `mapper` / `offset` зарегистрированы (тайминг); `ascii16`: синхронный сброс |
 | `cart/scc_wave.vhd`, `cart/ram.vhd` | VHDL | SCC (OCM) | `entity work.` |
-| `cart/vy0010.v` | Verilog | FDD Philips VY0010 | регистры 7FFC / 7FFD на `clk`; ROM `.mif` → `.hex` |
+| `cart/vy0010.v` | Verilog | FDD Philips VY0010 | регистры 7FFC / 7FFD на `clk`; ROM `.mif` → `.hex`; разметка `img_ss` для образов ≤ 360 КБ; вход `rom_en` (ROM отдаёт FF для «Disk (no ROM)») |
 | `cart/wd1793.v` (`sv2v`) | SV | FDC WD1793 (Sorgelig), `RWMODE=1`, `EDSK=0` | `buff_wr` / `spt_addr` объявлены в модуле |
 | `rom/vy0010.mif` → `vy0010.hex` | | Disk ROM VY0010, 16 КБ | `src/tools/mif2hex.py` |
 

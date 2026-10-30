@@ -5,8 +5,8 @@ module rom_detect
     input      [24:0] ioctl_addr,
     input       [7:0] ioctl_dout,
     input             rom_we,
-    output      [2:0] mapper,
-    output      [3:0] offset,
+    output reg  [2:0] mapper = 3'd0,  // karabas: registered, see the end
+    output reg  [3:0] offset = 4'd0,
     output reg [24:0] rom_size
 );
 
@@ -21,7 +21,39 @@ always @(posedge clk) begin
 end
 
 reg [7:0] a0,a1,a2; // karabas: out of the always block (XST takes no declarations in an unnamed block)
+reg hit = 1'b0;      // karabas: see below
+reg [7:0] hit_a2 = 8'd0;
 always @(posedge clk) begin
+
+    // karabas: the counters of the match registered at the byte before (see rom_we)
+    hit <= 1'b0;
+    if (hit) begin
+        case (hit_a2)
+                8'h60,
+                8'h70: begin
+                    asc16 <= asc16 + 1'd1;
+                    asc8 <= asc8 + 1'd1;
+                end
+                8'h68,
+                8'h78: begin
+                    asc8 <= asc8 + 1'd1;
+                    asc16 <= asc16 - 1'd1;
+                end
+        endcase
+        case (hit_a2)
+                8'h60,
+                8'h80,
+                8'ha0: begin
+                    kon4 <= kon4 + 1'd1;
+                end
+                8'h50,
+                8'h70,
+                8'h90,
+                8'hb0: begin
+                    kon5 <= kon5 + 1'd1;
+                end
+        endcase
+    end
 
     if (ioctl_isROM && ~last_isROM) begin
         asc16 <= 0;
@@ -33,6 +65,7 @@ always @(posedge clk) begin
         a0    <= 0;
         a1    <= 0;
         a2    <= 0;
+        hit   <= 1'b0; // karabas
     end
     if (rom_we) begin
         rom_size <= ioctl_addr + 1'd1 ;
@@ -55,35 +88,11 @@ always @(posedge clk) begin
         a0 <= a1;
         a1 <= a2;
         a2 <= ioctl_dout;
-        if (ioctl_addr > 2)	begin
-            if (a0 == 8'h32 && a1 == 0) begin
-                case (a2)
-                        8'h60,
-                        8'h70: begin
-                            asc16 <= asc16 + 1'd1;
-                            asc8 <= asc8 + 1'd1;
-                        end
-                        8'h68,
-                        8'h78: begin
-                            asc8 <= asc8 + 1'd1;
-                            asc16 <= asc16 - 1'd1;
-                        end
-                endcase
-                case (a2)
-                        8'h60,
-                        8'h80,
-                        8'ha0: begin
-                            kon4 <= kon4 + 1'd1;
-                        end
-                        8'h50,
-                        8'h70,
-                        8'h90,
-                        8'hb0: begin
-                            kon5 <= kon5 + 1'd1;
-                        end
-                endcase
-            end
-        end
+        // karabas: the match of the last three bytes is registered, the counters follow a clock
+        // later (the compare and the 16-bit counters in one clock were the slowest path of the core;
+        // a byte of the loader comes every 10 clocks or less often)
+        hit <= ioctl_addr > 2 && a0 == 8'h32 && a1 == 0;
+        hit_a2 <= a2;
     end
 end
 
@@ -97,7 +106,7 @@ end
 
 wire [15:0] kon    = kon4 > kon5 ? kon4 : kon5;
 wire [15:0] ascii  = asc8 > asc16 ? asc8 : asc16;
-assign      mapper = rom_size < 25'h2000                        ? 3'd0 :
+wire  [2:0] mapper_c = rom_size < 25'h2000                        ? 3'd0 :
                      rom_size < 25'h10000                       ? 3'd1 :
                      game1 && game2 && rom_size > 25'h18000     ? 3'd2 :
                      kon > ascii                                ? (kon5 > kon4  ? 3'd4 : 3'd3) :
@@ -110,9 +119,17 @@ wire romSig_at_4000 = head2[0] == "A" && head2[1] == "B";
 wire [3:0] start_1 = start == 0 ?  ((head[5] & 8'hC0) != 8'h40 ? 4'h8 : 4'h4) : ((start & 16'hC000) == 16'h8000 ? 4'h8 : 4'h4);
 wire [3:0] start_2 = (~romSig_at_0000 && romSig_at_4000) ? ((start4000 == 0 && (head2[5] & 8'hC0) == 8'h40) || start4000 < 16'h8000 || start4000 >= 16'hC000) ? 4'h0 : 4'h4 : 4'h4;
 wire [3:0] start_3 = (~(romSig_at_0000 && ~romSig_at_4000)) ? 4'h0 : 4'h4;
-assign offset = rom_size == 16'h1000 ? start_1 :
+wire  [3:0] offset_c = rom_size == 16'h1000 ? start_1 :
                 rom_size == 16'h2000 ? start_1 :
                 rom_size == 16'h4000 ? start_1 :
                 rom_size == 16'h8000 ? start_2 :
                 rom_size == 16'hC000 ? start_3 : 4'h0;
+
+// karabas: mapper and offset registered: they change only while a ROM loads (the machine is in
+// reset then), and the counters compared above to the address and the sound of a cartridge
+// (the SCC of mapper 4) to the DAC were the slowest paths of the core
+always @(posedge clk) begin
+    mapper <= mapper_c;
+    offset <= offset_c;
+end
 endmodule

@@ -41,6 +41,7 @@ module slots (
 	sd_din_strobe,
 	slot_A,
 	slot_B,
+	fdd_rom_en,
 	rom_enabled,
 	mapper_info
 );
@@ -87,6 +88,8 @@ module slots (
 	input sd_din_strobe;
 	input [3:0] slot_A;
 	input [3:0] slot_B;
+	// karabas: the disk ROM of the VY-0010 on (see vy0010)
+	input fdd_rom_en;
 	input [1:0] rom_enabled;
 	output wire [2:0] mapper_info;
 	wire [14:0] sound_slot_A;
@@ -169,6 +172,7 @@ module slots (
 		.rom_enabled(rom_enabled[0])
 	);
 	vy0010 FDD(
+		.rom_en(fdd_rom_en),
 		.clk(clk),
 		.clk_en(clk_en),
 		.reset(reset),

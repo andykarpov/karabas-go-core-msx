@@ -10,6 +10,7 @@ module vy0010
    input            wr_n,
    input            rd_n,
    input            CS1_n,
+   input            rom_en,  // karabas: the disk ROM answers (0: the FDC registers only, for C-BIOS)
    input            img_mounted,
    input     [31:0] img_size,
    input            img_wp,
@@ -35,7 +36,7 @@ wire r7fff = ~ic4 && addr[2] && addr[1:0] == 2'b11;
 wire romce = addr[15:14] == 2'b01 && ic4 && ~stlsl_n && ~CS1_n;
 wire csfdc = ~ic4 && ~addr[2];
 
-assign d_to_cpu = romce            ? d_from_rom                             : 
+assign d_to_cpu = romce            ? (rom_en ? d_from_rom : 8'hFF)          : 
                   r7ffc   && ~rd_n ? {7'b1111111, ~side_select}             :
                   r7ffd   && ~rd_n ? {m_on, in_use, 4'b1110, ~ds[1], ds[0]} :
                   r7fff   && ~rd_n ? {~drq, ~intrq, type1, type0, 4'b1111}  : 
@@ -78,8 +79,15 @@ end
 wire [7:0] d_from_wd;
 wire drq, intrq;
 reg img_load;
+// karabas: a single sided image (360 KB or less) has no side 1 between the tracks: layout 1 of
+// wd1793 (side-track-sector) puts track t of side 0 at t * 9 sectors there; layout 0
+// (track-side-sector, 720 KB) put it at 2t * 9 and every track after 0 was read wrong
+reg img_ss = 1'b0;
 
-always @(posedge clk) if(img_mounted) img_load <= |img_size;
+always @(posedge clk) if(img_mounted) begin
+   img_load <= |img_size;
+   img_ss <= img_size <= 32'd368640;
+end
 wire fdd_ready = img_load & ~ds[0] & ds[1];
 
 wd1793 #(.RWMODE(1), .EDSK(0)) fdc
@@ -96,7 +104,7 @@ wd1793 #(.RWMODE(1), .EDSK(0)) fdc
    .drq(drq),
    .intrq(intrq),
    .ready(fdd_ready),
-   .layout(1'b0),
+   .layout(img_ss),           // karabas: see img_ss
    .size_code(3'h2),
    .side(side_select),
    .img_mounted(img_mounted),

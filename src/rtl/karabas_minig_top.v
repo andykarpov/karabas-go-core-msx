@@ -14,8 +14,10 @@
  karabas-go-notes ft-clk-out-required). HDMI: kg_dcm 5 x clk_vga and its inverse.
 
  Soft switches (the index of the item in the osd of core_minig.json, file items included):
-   0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Video (PAL / NTSC)
-   5 Joysticks (swap)   6 BIOS (FL 2)   7 Reset   8 Eject carts
+   0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
+   disk drive without its ROM)
+   5 Disk A (F 0)   6 Video (PAL / NTSC)   7 Joysticks (swap)   8 BIOS (FL 2)   9 Reset
+   10 Eject carts
 */
 
 module karabas_minig_top (
@@ -204,6 +206,12 @@ wire [15:0] softsw_command, osd_command;
 wire mcu_busy;
 wire dvi_only;
 wire ft_cs_n, ft_mosi, ft_spi_on, sd2_cs_n, sd2_mosi;
+wire [7:0] img_mounted, img_data, img_result;
+wire [63:0] img_size;
+wire img_data_wr, img_result_wr, img_q_wr, img_q_ack;
+wire [8:0] img_data_addr;
+wire [15:0] img_sum;
+wire [23:0] img_q_di;
 
 kg_mcu #(
 	.BURST_MAX_MHZ(32),  // Rev.G has MCU_SCK on a global clock pin
@@ -212,7 +220,7 @@ kg_mcu #(
 	.ENABLE_UART(0),
 	.ENABLE_MATRIX(0),
 	.ENABLE_DEBUG(0),
-	.ENABLE_IMG(0),      // the disk drive: Ф2
+	.ENABLE_IMG(1),      // the disk drive: the .dsk image of the F item
 	.ENABLE_FILE(1),
 	.FILE_CMDS(0),       // the ioctl commands of the FL items
 	.FILE_WR_EACH(1),
@@ -282,8 +290,17 @@ kg_mcu #(
 	.MATRIX_CMD_WR(1'b0),
 	.DEBUG_ADDR(16'h0000),
 	.DEBUG_DATA(16'h0000),
-	.IMG_Q_WR(1'b0),
-	.IMG_Q_DI(24'h000000),
+	.IMG_MOUNTED(img_mounted),
+	.IMG_SIZE(img_size),
+	.IMG_DATA_WR(img_data_wr),
+	.IMG_DATA_ADDR(img_data_addr),
+	.IMG_DATA(img_data),
+	.IMG_RESULT_WR(img_result_wr),
+	.IMG_RESULT(img_result),
+	.IMG_SUM(img_sum),
+	.IMG_Q_WR(img_q_wr),
+	.IMG_Q_DI(img_q_di),
+	.IMG_Q_ACK(img_q_ack),
 	.ESP_UART_RX_DATA(8'h00),
 	.ESP_UART_RX_WR(1'b0),
 	.FLASHBOOT_START(1'b0),
@@ -299,8 +316,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [9*8-1:0] sw;
-kg_soft_switches #(.N(9)) soft_switches (
+wire [11*8-1:0] sw;
+kg_soft_switches #(.N(11)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -308,10 +325,12 @@ kg_soft_switches #(.N(9)) soft_switches (
 );
 wire [3:0] sw_mapper_a = sw[1*8 +: 4];
 wire [3:0] sw_mapper_b = sw[3*8 +: 4];
-wire sw_ntsc = sw[4*8];
-wire sw_joy_swap = sw[5*8];
-wire sw_reset = sw[7*8];
-wire sw_eject = sw[8*8];
+wire sw_fdd = sw[4*8 +: 2] != 2'd0;
+wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
+wire sw_ntsc = sw[6*8];
+wire sw_joy_swap = sw[7*8];
+wire sw_reset = sw[9*8];
+wire sw_eject = sw[10*8];
 
 // ------------------------------------------------------------------ the machine
 
@@ -336,6 +355,20 @@ msx_system msx (
 	.pal(~sw_ntsc),
 	.joy_swap(sw_joy_swap),
 	.eject(sw_eject),
+	.fdd(sw_fdd),
+	.fdd_rom_en(sw_fdd_rom),
+	.img_mounted(img_mounted),
+	.img_size(img_size),
+	.img_data_wr(img_data_wr),
+	.img_data_addr(img_data_addr),
+	.img_data(img_data),
+	.img_result_wr(img_result_wr),
+	.img_result(img_result),
+	.img_sum(img_sum),
+	.img_q_wr(img_q_wr),
+	.img_q_di(img_q_di),
+	.img_q_ack(img_q_ack),
+	.fdd_active(),
 	.kb_scancode(kb_scancode),
 	.kb_scancode_upd(kb_scancode_upd),
 	.joy_l(joy_l),
