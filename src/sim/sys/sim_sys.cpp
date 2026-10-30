@@ -44,7 +44,9 @@ static void on_vga() {
 	prev_hs = hs; prev_vs = vs; prev_de = de;
 }
 
-static int dbg_b = -1;
+static int isr_cnt = 0; static bool prev_isr = false;
+static int dbg_b = -1, dbg_k = -1, dbg_kb = -1, dbg_row = -1;
+static int kbdbg_from = getenv("SIM_KBDBG") ? atoi(getenv("SIM_KBDBG")) : -1;
 static bool dbg = getenv("SIM_DBG") != 0;
 static void tick() {
 	ticks++;
@@ -54,6 +56,10 @@ static void tick() {
 	if (ticks % 12 == 0) { top->clk_vga = !top->clk_vga; step = true; vga_rise = top->clk_vga; }
 	if (step) top->eval();
 	if (dbg && top->dbg_border != dbg_b) { printf("frame %d y %d border %d\n", frames, top->dbg_y, top->dbg_border); dbg_b = top->dbg_border; }
+	{ bool isr = !top->cpu_m1_n && top->cpu_a == 0x38; if (isr && !prev_isr) isr_cnt++; prev_isr = isr; }
+	if (kbdbg_from >= 0 && frames >= kbdbg_from && top->dbg_kb_row != dbg_row) { dbg_row = top->dbg_kb_row; printf("frame %d row %d kb %02x\n", frames, dbg_row, top->dbg_kb); }
+	if (dbg && top->dbg_ps2_key != dbg_k) { printf("frame %d ps2_key %03x\n", frames, top->dbg_ps2_key); dbg_k = top->dbg_ps2_key; }
+	if (dbg && top->dbg_kb != 0xFF && ((top->dbg_kb_row << 8) | top->dbg_kb) != dbg_kb) { dbg_kb = (top->dbg_kb_row << 8) | top->dbg_kb; printf("frame %d kb row %d = %02x\n", frames, top->dbg_kb_row, top->dbg_kb); }
 	if (vga_rise) on_vga();
 }
 
@@ -176,6 +182,7 @@ int main(int argc, char **argv) {
 		int f = frames - f0;
 		if (f != last) {
 			last = f;
+			if (getenv("SIM_ISR")) { printf("frame %d isr %d\n", f, isr_cnt); isr_cnt = 0; }
 			auto send = [&](int code) {
 				top->kb_scancode = code; upd = !upd; top->kb_scancode_upd = upd;
 				clk_cycles(2000);

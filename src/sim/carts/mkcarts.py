@@ -7,7 +7,7 @@ into the window at 8000, reads its number there and prints it with CHPUT of the 
     KONAMI 0123456789ABCDEF OK
 A wrong mapper gives other digits; "OK" only when all of them match.
 
-usage: mkcarts.py OUTDIR      (writes konami.rom, konami_scc.rom, ascii8.rom, ascii16.rom)
+usage: mkcarts.py OUTDIR      (writes konami.rom, konami_scc.rom, ascii8.rom, ascii16.rom, keys.rom)
 """
 import os
 import subprocess
@@ -101,9 +101,38 @@ bad:	db	" FAIL", 0
 """
 
 
+KEYS = """
+CHPUT	equ	0x00A2
+CHGET	equ	0x009F
+	org	0x4000
+	db	"AB"
+	dw	start
+	ds	12, 0
+start:
+	ld	hl, title
+print:	ld	a, (hl)
+	or	a
+	jr	z, keys
+	call	CHPUT
+	inc	hl
+	jr	print
+keys:	call	CHGET		; the BIOS reads the key matrix (PPI) in its interrupt
+	call	CHPUT
+	jr	keys
+title:	db	"KEYS ", 0
+"""
+
+
 def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
+    # keys.rom: 16 KB without a mapper, prints the keys it gets (the keyboard test of carts.txt)
+    src = os.path.join(out, 'keys.asm')
+    raw = os.path.join(out, 'keys.bin')
+    open(src, 'w').write(KEYS)
+    subprocess.run([SJASM, '--nologo', '--raw=' + raw, src], check=True)
+    code = open(raw, 'rb').read()
+    open(os.path.join(out, 'keys.rom'), 'wb').write(code + b'\xFF' * (0x4000 - len(code)))
     for name, bank, init, reg in MAPPERS:
         src = os.path.join(out, name.lower() + '.asm')
         raw = os.path.join(out, name.lower() + '.bin')

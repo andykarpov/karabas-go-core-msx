@@ -31,7 +31,10 @@ module tb_sys (
 	output wire [15:0] cpu_a,
 	output wire cpu_m1_n,
 	output wire [3:0] dbg_border,
-	output wire [7:0] dbg_y
+	output wire [7:0] dbg_y,
+	output wire [10:0] dbg_ps2_key,
+	output wire [7:0] dbg_kb,
+	output wire [3:0] dbg_kb_row
 );
 
 wire [20:0] MA;
@@ -63,6 +66,9 @@ assign cpu_a = sys.msx1.a;
 assign cpu_m1_n = sys.msx1.m1_n;
 assign dbg_border = video.border;
 assign dbg_y = video.y;
+assign dbg_ps2_key = sys.ps2_key;
+assign dbg_kb = sys.msx1.d_from_kb;
+assign dbg_kb_row = sys.msx1.ppi_out_c[3:0];
 
 // the SRAM
 reg [7:0] lo [0:(1<<21)-1];
