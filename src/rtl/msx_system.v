@@ -17,8 +17,9 @@
    The machine is in reset while a file loads, as MiSTer has it. A cartridge is on from its load
    until eject.
  The disk drive (fdd: slot 1 is the Philips VY-0010 with its WD1793 and disk ROM in place of
- cartridge A): the .dsk image of the F item, slot 0 of the file mounter, through img_sdc and
- msx_fdd_img (sectors of 512 bytes from the firmware, 5-15 ms each).
+ cartridge A): the .dsk image of the F item, slot 0 of the file mounter, through img_sdc; a copy of
+ it in the SRAM from 300000 (msx_fdd_cache: filled in the background, write-through), so a sector
+ is in the FDC in about 100 us instead of the 5-15 ms of the firmware.
  The mapper of a cartridge: mapper_a / mapper_b, the values of MiSTer (0 auto, 1 none,
  2 Game Master 2, 3 Konami, 4 Konami SCC, 5 ASCII 8, 6 ASCII 16, 7 linear 64K, 8 R-Type; the OSD offers 0-7, eight options at most); a change
  resets the machine.
@@ -64,6 +65,8 @@ module msx_system (
 	output wire [23:0] img_q_di,
 	input wire img_q_ack,
 	output wire fdd_active,    // a sector is being transferred (a LED)
+	output wire fdd_filling,   // the copy of the image in the SRAM is not complete yet
+	output wire [10:0] fdd_filled,
 
 	// input
 	input wire [7:0] kb_scancode,
@@ -198,7 +201,7 @@ msx1 msx1 (
 	.mem_din(mem_din),
 	.mem_dout(mem_dout),
 	.fw_rom_en(fw_rom_en),
-	// the disk drive: img_sdc through msx_fdd_img (the firmware opens the image read-write
+	// the disk drive: img_sdc and the copy of the image in the SRAM (msx_fdd_cache; the firmware opens the image read-write
 	// when it can and gives no write protect)
 	.img_mounted(sdc_img_mounted[0]),
 	.img_size(sdc_img_size[31:0]),
@@ -218,12 +221,15 @@ msx1 msx1 (
 
 wire fdd_sdc_rd, fdd_sdc_wr;
 wire [31:0] sdc_sector;
-wire sdc_busy, sdc_done, sdc_byte_in_strobe;
+wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe;
+wire aux_req, aux_we, aux_ack;
+wire [21:0] aux_addr;
+wire [7:0] aux_din, aux_dout;
 wire [2:0] sdc_slot;
 wire [8:0] sdc_byte_addr;
 wire [7:0] sdc_byte_in_data, sdc_byte_out_data;
 
-// no reset: a reset of the machine during a request leaves img_sdc to finish it (msx_fdd_img
+// no reset: a reset of the machine during a request leaves img_sdc to finish it (msx_fdd_cache
 // waits for its end); a request that gets no answer ends after the timeout
 img_sdc #(
 	.OUT_LATENCY(3),
@@ -249,7 +255,7 @@ img_sdc #(
 	.sdc_sector(sdc_sector),
 	.sdc_busy(sdc_busy),
 	.sdc_done(sdc_done),
-	.sdc_error(),
+	.sdc_error(sdc_error),
 	.sdc_slot(sdc_slot),
 	.sdc_byte_in_strobe(sdc_byte_in_strobe),
 	.sdc_byte_addr(sdc_byte_addr),
@@ -258,9 +264,10 @@ img_sdc #(
 	.active(fdd_active)
 );
 
-msx_fdd_img fdd_img (
+msx_fdd_cache #(.BASE(22'h300000), .MAXSEC(1536)) fdd_cache (
 	.clk(clk),
-	.reset(1'b0),
+	.img_mounted(sdc_img_mounted[0]),
+	.img_size(sdc_img_size[31:0]),
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_lba(sd_lba),
@@ -274,11 +281,20 @@ msx_fdd_img fdd_img (
 	.sdc_sector(sdc_sector),
 	.sdc_busy(sdc_busy),
 	.sdc_done(sdc_done),
+	.sdc_error(sdc_error),
 	.sdc_slot(sdc_slot),
 	.sdc_byte_in_strobe(sdc_byte_in_strobe),
 	.sdc_byte_addr(sdc_byte_addr),
 	.sdc_byte_in_data(sdc_byte_in_data),
-	.sdc_byte_out_data(sdc_byte_out_data)
+	.sdc_byte_out_data(sdc_byte_out_data),
+	.aux_req(aux_req),
+	.aux_we(aux_we),
+	.aux_addr(aux_addr),
+	.aux_din(aux_din),
+	.aux_ack(aux_ack),
+	.aux_dout(aux_dout),
+	.filling(fdd_filling),
+	.filled(fdd_filled)
 );
 
 // ------------------------------------------------------------------ SRAM
@@ -289,6 +305,12 @@ msx_sram sram (
 	.we(rom_active ? rom_wr : mem_we),
 	.din(rom_active ? rom_data : mem_din),
 	.dout(mem_dout),
+	.aux_req(aux_req),
+	.aux_we(aux_we),
+	.aux_addr(aux_addr),
+	.aux_din(aux_din),
+	.aux_ack(aux_ack),
+	.aux_dout(aux_dout),
 	.MA(MA),
 	.MD(MD),
 	.MWR_N(MWR_N)

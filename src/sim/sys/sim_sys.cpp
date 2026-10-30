@@ -71,7 +71,10 @@ static uint16_t mcu_wsum = 0;
 static int mcu_wsum_parts = 0;
 static uint64_t mcu_req_clk = 0;
 static bool fdd_log = getenv("SIM_FDD") != 0;
+static bool fdd_log_all = getenv("SIM_FDD_ALL") != 0;
 static int mount_at = -1;             // clk to mount the disk (pulse img_mounted[0])
+static uint64_t mount_clk = 0;
+static bool fill_reported = false;
 
 static void mcu_answer(bool ok) {
 	top->img_result = ok ? 1 : 2;
@@ -88,7 +91,13 @@ static void mcu_clk() {
 		top->img_size = disk.size();
 		top->img_mounted = 1;
 		mount_at = -1;
+		mount_clk = clks;
+		fill_reported = false;
 		if (fdd_log) printf("mcu: mount %zu bytes\n", disk.size());
+	}
+	if (!fill_reported && mount_clk && !top->fdd_filling && top->fdd_filled) {
+		fill_reported = true;
+		printf("fdd: image in the SRAM after %.1f ms (%d sectors)\n", (clks - mount_clk) / 42857.0, top->fdd_filled);
 	}
 	if (top->img_q_wr && !top->img_q_ack) {
 		uint32_t w = top->img_q_di;
@@ -104,7 +113,7 @@ static void mcu_clk() {
 			mcu_op = d;
 			mcu_req_clk = clks;
 			mcu_wcnt = 0; mcu_wsum_parts = 0; mcu_wsum = 0;
-			if (fdd_log) printf("mcu: %s lba %u (request %d)\n", d == 1 ? "read" : "write", mcu_lba, fdd_reqs);
+			if (fdd_log && (fdd_log_all || d != 1 || fdd_reqs <= 3)) printf("mcu: %s lba %u (request %d, %.1f ms)\n", d == 1 ? "read" : "write", mcu_lba, fdd_reqs, clks / 42857.0);
 			if (fdd_reqs == fdd_drop) { if (fdd_log) printf("mcu: request %d lost\n", fdd_reqs); mcu_op = 0; }
 			else if (d == 1) mcu_wait = fdd_latency;
 		}

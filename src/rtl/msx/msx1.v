@@ -414,6 +414,7 @@ slots slots
 //  -----------------------------------------------------------------------------
 // 000000 BIOS 32 KB (slot 0, 0000-7FFF)      010000 RAM 64 KB (slot 3)
 // 008000 firmware ROM 16 KB (slot 0, 8000-BFFF)   100000 cartridge B, 200000 cartridge A, 1 MB each
+// 300000 the disk image (msx_fdd_cache, 768 KB)   3C0000 free (the tape, Ф3)
 // The cartridges are at the addresses of the MiSTer SDRAM, bit 22 = slot A; a ROM file over 1 MB
 // is cut (the rest is not written). The SRAM is read all the time (msx_sram); a write is a level
 // here, msx_sram writes once at its rising edge.
