@@ -226,7 +226,7 @@ module slots (
 		.detected_mapper(detected_mapper_B),
 		.rom_enabled(rom_enabled[1])
 	);
-	// karabas: the RAM of slot 3 is in the SRAM (msx1 puts it at 010000), the ROM of a cartridge
+	// karabas: the RAM of slot 3 is in the SRAM (msx1 puts it at 080000), the ROM of a cartridge
 	// too (MiSTer without SDRAM had slot B in 256 KB of block RAM: sdram_size is 1 here)
 	assign ram_q = sdram_dout;
 	assign ram_we = ~(SLTSL_n[3] | wr_n);

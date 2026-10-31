@@ -10,15 +10,15 @@ B=sim/build
 python3 sim/carts/mkcarts.py $B/carts > /dev/null
 mkdir -p $B/out
 pids=()
-while read -r name cart mapper frames crc; do
+while read -r name cart mapper frames crc args; do
 	./$B/sys/sim_sys --rom roms/cbios_main_msx1_eu.rom:0 --rom roms/cbios_logo_msx1.rom:0x8000 \
-		--cart $B/carts/$cart --mapper-a "$mapper" --frames "$frames" --hash --ppm $B/out/$name.ppm \
+		--cart $B/carts/$cart --mapper-a "$mapper" --frames "$frames" --hash --ppm $B/out/$name.ppm $args \
 		> $B/out/$name.log 2>&1 &
 	pids+=($!)
 done < <(grep -v '^#' sim/carts/carts.txt)
 for p in "${pids[@]}"; do wait "$p"; done
 err=0
-while read -r name cart mapper frames crc; do
+while read -r name cart mapper frames crc args; do
 	got=$(sed -n "s/^frame $frames crc //p" $B/out/$name.log)
 	if [ "$got" = "$crc" ]; then echo "$name: ok"; else echo "$name: FAIL (crc $got, expected $crc)"; err=$((err + 1)); fi
 done < <(grep -v '^#' sim/carts/carts.txt)

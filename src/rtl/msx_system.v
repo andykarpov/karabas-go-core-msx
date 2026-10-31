@@ -11,8 +11,9 @@
  - the ROM loader (the roms of core.json, at core start): rom_addr is the SRAM byte address
    (000000 the BIOS, 008000 the ROM of slot 0 page 2: C-BIOS main and logo), the machine is held
    in reset while rom_active;
- - the file loader (FL items, ioctl, one write per byte): file_slot 0 = cartridge A (slot 1 of the
-   MSX), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
+ - the file loader (FL items, ioctl, one write per byte): file_slot 4 = cartridge A (slot 1 of the
+   MSX; not 0: the firmware keeps the F and FL items in one array of file slots, and slot 0 is the
+   disk of the F item), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
    page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there),
    3 = a .cas file of the cassette (msx_tape, in the SRAM from 3C0000; no reset).
    The machine is in reset while a cartridge or a BIOS file loads, as MiSTer has it. A cartridge is on from its load
@@ -60,6 +61,7 @@ module msx_system #(
 	output wire tape_out,      // TAPE_OUT: the cassette write data of the PPI (CSAVE)
 	input wire eject,          // the cartridges off (a reset as well)
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
+	input wire ram_mapper,     // the RAM of slot 3 is 512 KB with the memory mapper (ports FC-FF), else 64 KB
 	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
 	                           // INIT of the Philips disk ROM, which needs a real BIOS with BASIC)
 
@@ -122,7 +124,7 @@ always @(posedge clk)
 	else if (file_reset)
 		slot_ok <= 1'b1;
 wire file_on = file_active && slot_ok;
-wire ioctl_isROMA = file_on && file_slot == 8'd0;
+wire ioctl_isROMA = file_on && file_slot == 8'd4;
 wire ioctl_isROMB = file_on && file_slot == 8'd1;
 wire ioctl_isBIOS = file_on && file_slot == 8'd2;
 wire ioctl_isCAS = file_on && file_slot == 8'd3;
@@ -149,11 +151,12 @@ end
 // slot A of MiSTer: 9 is the disk drive
 wire [3:0] slot_a = fdd ? 4'd9 : mapper_a;
 
-reg [7:0] mappers_d = 8'd0;
+// a change of the mappers or of the RAM resets the machine
+reg [8:0] mappers_d = 9'd0;
 reg mapper_reset = 1'b0;
 always @(posedge clk) begin
-	mappers_d <= { mapper_b, slot_a };
-	mapper_reset <= mappers_d != { mapper_b, slot_a };
+	mappers_d <= { ram_mapper, mapper_b, slot_a };
+	mapper_reset <= mappers_d != { ram_mapper, mapper_b, slot_a };
 end
 
 wire msx_reset = reset || rom_active || ioctl_download || mapper_reset || eject;
@@ -232,6 +235,7 @@ msx1 msx1 (
 	.mem_din(mem_din),
 	.mem_dout(mem_dout),
 	.fw_rom_en(fw_rom_en),
+	.ram_mapper_en(ram_mapper),
 	// the disk drive: img_sdc and the copy of the image in the SRAM (msx_fdd_cache; the firmware opens the image read-write
 	// when it can and gives no write protect)
 	.img_mounted(sdc_img_mounted[0]),

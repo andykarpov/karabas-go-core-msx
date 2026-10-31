@@ -22,8 +22,9 @@ with test cartridges, not yet with a real MSX BIOS). The Mini and Go builds are 
 
 ## What it does
 
-- **The MSX1 of MSX1_MiSTer:** Z80 (T80), TMS9918 VDP (vdp18), AY-3-8910 PSG (jt49), PPI, 64 KB of
-  RAM.
+- **The MSX1 of MSX1_MiSTer:** Z80 (T80), TMS9918 VDP (vdp18), AY-3-8910 PSG (jt49), PPI, 512 KB of
+  RAM in slot 3 with the memory mapper of the MSX2 (ports FC-FF; the OSD item RAM, 64K: the plain
+  64 KB of an MSX1).
 - **BIOS:** [C-BIOS](http://cbios.sourceforge.net/) 0.29a is built into the core (EU version with
   its logo). It boots cartridges, but it has no BASIC and no tape or disk routines. For BASIC, disk
   and tape software load the BIOS of a real MSX1 with the OSD item BIOS (32 KB, or 48 KB with a
@@ -45,7 +46,7 @@ with test cartridges, not yet with a real MSX BIOS). The Mini and Go builds are 
 - **Input:** the USB keyboard as the MSX keyboard, two MSX joysticks: the joysticks of the board or
   USB gamepads.
 
-Not there yet (see `docs/BACKLOG.md`): the memory mapper (more RAM), SCC MegaRAM, the OPLL (MSX-MUSIC),
+Not there yet (see `docs/BACKLOG.md`): SCC MegaRAM, the OPLL (MSX-MUSIC),
 Nextor on a hard disk image, the save RAM of Game Master 2 and other battery cartridges.
 
 ## Getting started
@@ -74,6 +75,7 @@ the file again.
 | Tape | a `.cas` file | Menu+F4 |
 | Tape rewind | the tape from its start | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
+| RAM | 512K mapper / 64K | |
 | Video | PAL 50Hz / NTSC 60Hz | Menu+V |
 | Joysticks | Normal / Swap | Menu+J |
 | BIOS | a BIOS file, loaded at every start | |
