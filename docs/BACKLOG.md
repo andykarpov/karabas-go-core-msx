@@ -10,14 +10,25 @@
 - ~~**OPLL**~~: сделан (MSX-MUSIC на `jt2413`, PR #8, сборка 26103105 Mini G проверена на железе).
 - **ESE-SCC MegaRAM** (SCC-картридж с RAM, загрузка образов игр Konami) и **FM-PAC** (маппер
   7FF4–7FF6, SRAM 8 КБ) — опциями OSD, если останется место после OPLL.
-- **Nextor на образе HDD**: ветка `f5-nextor`, `nextor_sd.v` (см. «Решения» в `PLAN.md`); на железе
-  нужен настоящий BIOS MSX1 и `NEXTOR.ROM` (MSX1FPGA `Support/SD/MSX1FPGA`).
+- ~~**Nextor на образе HDD**~~: сделан (`nextor_sd.v`, PR #10); эмулятор SD-карты проверен на
+  железе `sdtest.rom`, сам Nextor — нет (нужен BIOS, см. ниже).
 - **Сохранения картриджей с батарейкой** (Game Master 2, ASCII 8 / 16 с SRAM): `.sav` через
   `kg_bk_ram` (caps bit 3, как у NES).
 - **Физический дисковод** Karabas Go (`F` с флагом `physical`, как у NanoMig).
 - **Turbo** и **576p50** для PAL (настоящие 50 Гц на выходе вместо 60).
 
 ## Открытые вопросы и непроверенное
+
+- **С настоящим BIOS MSX1** (пользователь его достанет; на SD-карте Mini G уже есть `/msx/NEXTOR.ROM`
+  и `/msx/nextor.img` — 32 МБ, MBR + FAT16 с `NEXTOR.SYS`, `COMMAND2.COM`, `DOS/`, `HELP/`):
+  1. Nextor: Machine > BIOS = дамп, Slot 1 = Nextor, Slot 1 ROM = On, HDD = `nextor.img` — заставка
+     Nextor, `A>`, `DIR`, `DIR DOS`, запись файла (`COPY CON`), перезапуск и файл на месте; смена
+     образа HDD во время работы (флаг смены диска); `CALL SYSTEM` / `BASIC` туда и обратно.
+  2. Memory mapper под Nextor: свободная память в `A>` (`DRVINFO`, `MAPDRV`), 512K / 64K.
+  3. Дисковод с Disk ROM: Slot 1 = Disk drive, Slot 1 ROM = On — Disk BASIC (`FILES`, `SAVE` /
+     `LOAD`), DSK-игры.
+  4. Кассета: CAS-игры (`RUN"CAS:"`, `BLOAD"CAS:",R`), `CLOAD` / `CSAVE` через TAPE_IN / TAPE_OUT.
+  5. MSX-MUSIC с BIOS: игры, которые ищут `APRLOPLL`.
 
 - Go и Mini (26103102) на железе не проверены.
 - `TAPE_IN` / `TAPE_OUT` не проверены (нет магнитофона).
