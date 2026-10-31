@@ -48,6 +48,7 @@ module msx1
 	input   [7:0] mem_dout,
 	input         fw_rom_en,
 	input         ram_mapper_en, // karabas: the RAM of slot 3 is 512 KB with a memory mapper (ram_mapper.v)
+	input         opll_en,       // karabas: the OPLL (MSX-MUSIC, jt2413) at the ports 7C-7D
    
 	input         img_mounted,
 	input  [31:0] img_size,
@@ -87,15 +88,18 @@ wire        ram_we;
 //  -----------------------------------------------------------------------------
 wire  [9:0] audioPSG = ay_ch_mix + {keybeep,5'b00000} + {(cas_audio_in & ~cas_motor),4'b0000};                                        
 wire [15:0] fm       = {2'b0, audioPSG, 4'b0000};
-wire [16:0] audio_mix = {sound_slots[15], sound_slots} + {fm[15], fm};
-// karabas: the array literal of SystemVerilog as a case (element 0 of '{...} is the last one)
+// karabas: the OPLL is a third term (a note of jt2413 is +-1.4K, a tone of the PSG 0..4K here): one
+// bit more, the same clipping at +-2^14 (the case of the array literal of SystemVerilog was on 3
+// bits, element 0 of '{...} is the last one)
+wire signed [15:0] opll_snd;
+wire [17:0] audio_mix = {{2{sound_slots[15]}}, sound_slots} + {{2{fm[15]}}, fm} +
+                        (opll_en ? {{2{opll_snd[15]}}, opll_snd} : 18'd0);
 reg [15:0] compr;
 always @* begin
-	case (audio_mix[16:14])
-		3'd0: compr = {1'b0, audio_mix[13:0], 1'b0};
-		3'd1, 3'd2, 3'd3: compr = 16'h7FFF;
-		3'd4, 3'd5, 3'd6: compr = 16'h8000;
-		default: compr = {1'b1, audio_mix[13:0], 1'b0};
+	case (audio_mix[17:14])
+		4'b0000: compr = {1'b0, audio_mix[13:0], 1'b0};
+		4'b1111: compr = {1'b1, audio_mix[13:0], 1'b0};
+		default: compr = audio_mix[17] ? 16'h8000 : 16'h7FFF;
 	endcase
 end
 assign audio = compr;
@@ -307,11 +311,50 @@ ram_mapper ram_mapper
 );
 
 //  -----------------------------------------------------------------------------
+//  -- karabas: the OPLL (YM2413, MSX-MUSIC) at the ports 7C (register) and 7D (data), write only
+//  -----------------------------------------------------------------------------
+wire opll_cs_n = ~(opll_en & ~iorq_n & m1_n & a[7:1] == 7'b0111110);
+jt2413 opll
+(
+	.rst(reset),
+	.clk(clk),
+	.cen(clk_en_3m58_p),
+	.din(d_from_cpu),
+	.addr(a[0]),
+	.cs_n(opll_cs_n),
+	.wr_n(wr_n),
+	.snd(opll_snd),
+	.sample()
+);
+
+// the internal MSX-MUSIC is found by its ROM: "APRLOPLL" at 4018 of a slot. With the OPLL on and no
+// cartridge B, page 1 of slot 2 has the header of the MSX-MUSIC ROM of C-BIOS (cbios_music.rom:
+// "AB", no init, the name); zeros elsewhere
+wire       opll_rom = opll_en & ~rom_enabled[1] & ~SLTSL_n[2] & a[15:14] == 2'b01;
+reg  [7:0] opll_rom_q;
+always @* begin
+	case (a[13:0])
+		14'h0000: opll_rom_q = "A";
+		14'h0001: opll_rom_q = "B";
+		14'h0018: opll_rom_q = "A";
+		14'h0019: opll_rom_q = "P";
+		14'h001A: opll_rom_q = "R";
+		14'h001B: opll_rom_q = "L";
+		14'h001C: opll_rom_q = "O";
+		14'h001D: opll_rom_q = "P";
+		14'h001E: opll_rom_q = "L";
+		14'h001F: opll_rom_q = "L";
+		default:  opll_rom_q = 8'h00;
+	endcase
+end
+
+//  -----------------------------------------------------------------------------
 //  -- CPU data multiplex
 //  ----------------------------------------------------------------------------- 
 assign d_to_cpu = ~(CS01_n | SLTSL_n[0]) ? rom_q :
                   ~(CS2_n  | SLTSL_n[0]) ? fw_rom_q :
 						~(SLTSL_n[1])          ? d_from_slots:
+						opll_rom               ? opll_rom_q : // karabas
 						~(SLTSL_n[2])          ? d_from_slots:
 						~(SLTSL_n[3])          ? d_from_slots:                 
 						~(vdp_n | rd_n)        ? d_from_vdp :

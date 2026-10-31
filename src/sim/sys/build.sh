@@ -14,7 +14,7 @@ SRC="$H/tb_sys.v $R/msx_system.v $R/msx_video.v $R/msx_sram.v $R/msx_ps2_key.v $
  $R/msx/cart/rom.v $R/msx/cart/rom_detect.v $R/msx/cart/konami.v $R/msx/cart/konami_scc.v $R/msx/cart/ascii8.v
  $R/msx/cart/ascii16.v $R/msx/cart/gamemaster2.v $R/msx/cart/vy0010.v $R/msx/cart/wd1793.v
  $R/msx/jt49/jt49_bus.v $R/msx/jt49/jt49.v $R/msx/jt49/jt49_cen.v $R/msx/jt49/jt49_div.v $R/msx/jt49/jt49_eg.v
- $R/msx/jt49/jt49_exp.v $R/msx/jt49/jt49_noise.v
+ $R/msx/jt49/jt49_exp.v $R/msx/jt49/jt49_noise.v $R/msx/jtopl/*.v
  $M/mem/kg_spram.v $M/mem/kg_fifo.v $M/mem/kg_sdpram.v $M/ctl/kg_sync.v
  $B/vhdl/t80pa.v $B/vhdl/vdp18_core.v $B/vhdl/cv_clock.v $B/vhdl/keyboard.v $B/vhdl/scc_wave.v"
 verilator --language 1364-2005 --cc --exe --build -j 8 -O3 --top-module tb_sys -Mdir "$B/sys" -o sim_sys \

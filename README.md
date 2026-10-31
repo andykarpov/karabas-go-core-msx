@@ -25,6 +25,9 @@ with test cartridges, not yet with a real MSX BIOS). The Mini and Go builds are 
 - **The MSX1 of MSX1_MiSTer:** Z80 (T80), TMS9918 VDP (vdp18), AY-3-8910 PSG (jt49), PPI, 512 KB of
   RAM in slot 3 with the memory mapper of the MSX2 (ports FC-FF; the OSD item RAM, 64K: the plain
   64 KB of an MSX1).
+- **MSX-MUSIC:** the OPLL (YM2413, [jt2413](https://github.com/jotego/jtopl)) at the ports 7C-7D, as
+  the internal MSX-MUSIC of later machines: without cartridge B, slot 2 shows its ROM signature
+  (`APRLOPLL`), so games find it. The OSD item FM (MSX-MUSIC) turns it off.
 - **BIOS:** [C-BIOS](http://cbios.sourceforge.net/) 0.29a is built into the core (EU version with
   its logo). It boots cartridges, but it has no BASIC and no tape or disk routines. For BASIC, disk
   and tape software load the BIOS of a real MSX1 with the OSD item BIOS (32 KB, or 48 KB with a
@@ -46,7 +49,7 @@ with test cartridges, not yet with a real MSX BIOS). The Mini and Go builds are 
 - **Input:** the USB keyboard as the MSX keyboard, two MSX joysticks: the joysticks of the board or
   USB gamepads.
 
-Not there yet (see `docs/BACKLOG.md`): SCC MegaRAM, the OPLL (MSX-MUSIC),
+Not there yet (see `docs/BACKLOG.md`): SCC MegaRAM,
 Nextor on a hard disk image, the save RAM of Game Master 2 and other battery cartridges.
 
 ## Getting started
@@ -76,6 +79,7 @@ the file again.
 | Tape rewind | the tape from its start | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
 | RAM | 512K mapper / 64K | |
+| FM (MSX-MUSIC) | On / Off | |
 | Video | PAL 50Hz / NTSC 60Hz | Menu+V |
 | Joysticks | Normal / Swap | Menu+J |
 | BIOS | a BIOS file, loaded at every start | |
@@ -121,12 +125,12 @@ The board firmware is [karabas-go-firmware](https://github.com/andykarpov/karaba
 
 - [MSX1_MiSTer](https://github.com/MiSTer-devel/MSX1_MiSTer): molekula and the MiSTer contributors
   (the machine, the slots and mappers, the VY-0010 / WD1793 disk interface, the CAS player).
-- T80: Daniel Wallner, MikeJ, Sorgelig and others. vdp18: Arnim Laeuger. jt49 and jt8255: Jose
+- T80: Daniel Wallner, MikeJ, Sorgelig and others. vdp18: Arnim Laeuger. jt49, jt8255 and jt2413 (jtopl): Jose
   Tejada.
 - [C-BIOS](http://cbios.sourceforge.net/): the C-BIOS team.
 - Karabas Go boards and the port: Andy Karpov.
 
 The core is under the GNU GPL v3 (`LICENSE`). Its parts keep their own licenses, all compatible with
-it: MSX1_MiSTer GPL v2 or later, jt49 GPL v3, T80 and vdp18 BSD-style licenses, jt8255 MIT,
+it: MSX1_MiSTer GPL v2 or later, jt49 and jtopl GPL v3, T80 and vdp18 BSD-style licenses, jt8255 MIT,
 C-BIOS a BSD 2-clause license (`src/roms/LICENSE.cbios`; the C-BIOS ROMs are built into the core
 files). The disk ROM of the VY-0010 (`src/rtl/msx/rom`) comes from MSX1_MiSTer.

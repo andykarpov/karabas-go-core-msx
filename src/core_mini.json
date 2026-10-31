@@ -22,6 +22,7 @@
         {"type": "T", "name": "Tape rewind", "hotkey": "Menu+R"},
         {"type": "S", "name": "Tape input", "options": ["CAS file", "Tape in"], "default": 0},
         {"type": "S", "name": "RAM", "options": ["512K mapper", "64K"], "default": 0},
+        {"type": "S", "name": "FM (MSX-MUSIC)", "options": ["On", "Off"], "default": 0},
         {"type": "S", "name": "Video", "options": ["PAL 50Hz", "NTSC 60Hz"], "default": 0, "hotkey": "Menu+V"},
         {"type": "S", "name": "Joysticks", "options": ["Normal", "Swap"], "default": 0, "hotkey": "Menu+J"},
         {"type": "FL", "name": "BIOS", "slot": 2, "extensions": ".rom", "dir": "/msx", "autoload": 1},

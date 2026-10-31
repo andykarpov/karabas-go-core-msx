@@ -20,7 +20,10 @@ for p in "${pids[@]}"; do wait "$p"; done
 err=0
 while read -r name cart mapper frames crc args; do
 	got=$(sed -n "s/^frame $frames crc //p" $B/out/$name.log)
-	if [ "$got" = "$crc" ]; then echo "$name: ok"; else echo "$name: FAIL (crc $got, expected $crc)"; err=$((err + 1)); fi
+	audio=$(sed -n "s/^audio range //p" $B/out/$name.log)
+	if [ "$got" != "$crc" ]; then echo "$name: FAIL (crc $got, expected $crc)"; err=$((err + 1))
+	elif [ "${audio% FAIL}" != "$audio" ]; then echo "$name: FAIL (audio range ${audio% FAIL})"; err=$((err + 1))
+	else echo "$name: ok"; fi
 done < <(grep -v '^#' sim/carts/carts.txt)
 echo "run_carts: $err errors"
 [ $err -eq 0 ]
