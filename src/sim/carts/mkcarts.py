@@ -7,7 +7,15 @@ into the window at 8000, reads its number there and prints it with CHPUT of the 
     KONAMI 0123456789ABCDEF OK
 A wrong mapper gives other digits; "OK" only when all of them match.
 
-usage: mkcarts.py OUTDIR      (writes konami.rom, konami_scc.rom, ascii8.rom, ascii16.rom, keys.rom)
+rammap.rom (16 KB, no mapper) tests the memory mapper of the RAM (ports FC-FF): it maps each of the
+32 segments into page 2 (port FE), writes its number there, then maps them again and checks the
+number, its complement and the value read back from the port (the segment with bits 7..5 set), and
+that segment 32 is segment 0; it prints the number of good segments in hex:
+    RAMMAP 20 OK
+With the RAM of 64 KB (sim_sys --ram64) the ports do nothing and it must fail.
+
+usage: mkcarts.py OUTDIR      (writes konami.rom, konami_scc.rom, ascii8.rom, ascii16.rom, keys.rom,
+                               rammap.rom)
 """
 import os
 import subprocess
@@ -123,16 +131,127 @@ title:	db	"KEYS ", 0
 """
 
 
+RAMMAP = """
+CHPUT	equ	0x00A2
+NSEG	equ	32
+	org	0x4000
+	db	"AB"
+	dw	start
+	ds	12, 0
+start:
+	di
+	ld	sp, 0xF380	; page 3 = segment 0 (port FF), never changed here
+	; page 2 to the slot of page 3 (the RAM)
+	in	a, (0xA8)
+	ld	b, a
+	and	0xC0
+	rrca
+	rrca
+	ld	c, a
+	ld	a, b
+	and	0xCF
+	or	c
+	out	(0xA8), a
+	ld	b, 0
+fill:	ld	a, b
+	out	(0xFE), a
+	ld	(0x8000), a
+	cpl
+	ld	(0x8001), a
+	inc	b
+	ld	a, b
+	cp	NSEG
+	jr	nz, fill
+	ld	c, 0		; good segments
+	ld	b, 0
+check:	ld	a, b
+	out	(0xFE), a
+	in	a, (0xFE)
+	ld	d, a
+	ld	a, b
+	or	0xE0
+	cp	d
+	jr	nz, next
+	ld	a, (0x8000)
+	cp	b
+	jr	nz, next
+	ld	a, (0x8001)
+	cpl
+	cp	b
+	jr	nz, next
+	inc	c
+next:	inc	b
+	ld	a, b
+	cp	NSEG
+	jr	nz, check
+	; segment 32 is segment 0 (5 bits)
+	ld	a, NSEG
+	out	(0xFE), a
+	ld	a, (0x8000)
+	or	a
+	jr	z, wrap
+	ld	c, 0
+wrap:	ld	a, 1
+	out	(0xFE), a	; page 2 back to segment 1
+	ld	hl, title
+	call	print
+	ld	a, c
+	rrca
+	rrca
+	rrca
+	rrca
+	call	hex
+	ld	a, c
+	call	hex
+	ld	hl, bad
+	ld	a, c
+	cp	NSEG
+	jr	nz, result
+	ld	hl, good
+result:	call	print
+stop:	jr	stop
+
+hex:	push	bc
+	and	0x0F
+	add	a, '0'
+	cp	'9' + 1
+	jr	c, digit
+	add	a, 7
+digit:	call	CHPUT
+	pop	bc
+	ret
+
+print:	ld	a, (hl)
+	or	a
+	ret	z
+	push	hl
+	call	CHPUT
+	pop	hl
+	inc	hl
+	jr	print
+
+title:	db	"RAMMAP ", 0
+good:	db	" OK", 0
+bad:	db	" FAIL", 0
+"""
+
+
+def plain(out, name, text):
+    """a 16 KB cartridge without a mapper"""
+    src = os.path.join(out, name + '.asm')
+    raw = os.path.join(out, name + '.bin')
+    open(src, 'w').write(text)
+    subprocess.run([SJASM, '--nologo', '--raw=' + raw, src], check=True)
+    code = open(raw, 'rb').read()
+    open(os.path.join(out, name + '.rom'), 'wb').write(code + b'\xFF' * (0x4000 - len(code)))
+
+
 def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
-    # keys.rom: 16 KB without a mapper, prints the keys it gets (the keyboard test of carts.txt)
-    src = os.path.join(out, 'keys.asm')
-    raw = os.path.join(out, 'keys.bin')
-    open(src, 'w').write(KEYS)
-    subprocess.run([SJASM, '--nologo', '--raw=' + raw, src], check=True)
-    code = open(raw, 'rb').read()
-    open(os.path.join(out, 'keys.rom'), 'wb').write(code + b'\xFF' * (0x4000 - len(code)))
+    # keys.rom: prints the keys it gets (the keyboard test of carts.txt)
+    plain(out, 'keys', KEYS)
+    plain(out, 'rammap', RAMMAP)
     for name, bank, init, reg in MAPPERS:
         src = os.path.join(out, name.lower() + '.asm')
         raw = os.path.join(out, name.lower() + '.bin')

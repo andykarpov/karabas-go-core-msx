@@ -24,7 +24,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 ## Что умеет
 
 - **MSX1 из MSX1_MiSTer:** Z80 (T80), видеопроцессор TMS9918 (vdp18), звук AY-3-8910 (jt49), PPI,
-  64 КБ RAM.
+  512 КБ RAM в слоте 3 с memory mapper MSX2 (порты FC–FF; пункт OSD RAM, 64K — обычные 64 КБ MSX1).
 - **BIOS:** в ядро встроен [C-BIOS](http://cbios.sourceforge.net/) 0.29a (европейская версия с
   логотипом). Он запускает картриджи, но в нём нет BASIC и процедур кассеты и дисковода. Для BASIC,
   дисков и кассет загрузите BIOS настоящего MSX1 пунктом OSD BIOS (32 КБ или 48 КБ с ROM страницы 2
@@ -44,7 +44,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 - **Управление:** USB-клавиатура как клавиатура MSX, два джойстика MSX: джойстики платы или
   USB-геймпады.
 
-Пока нет (см. `docs/BACKLOG.md`): memory mapper (больше RAM), SCC MegaRAM, OPLL (MSX-MUSIC), Nextor на
+Пока нет (см. `docs/BACKLOG.md`): SCC MegaRAM, OPLL (MSX-MUSIC), Nextor на
 образе жёсткого диска, сохранение памяти Game Master 2 и других картриджей с батарейкой.
 
 ## Как начать
@@ -73,6 +73,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 | Tape | файл `.cas` | Menu+F4 |
 | Tape rewind | кассета на начало | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
+| RAM | 512K mapper / 64K | |
 | Video | PAL 50Hz / NTSC 60Hz | Menu+V |
 | Joysticks | Normal / Swap | Menu+J |
 | BIOS | файл BIOS, загружается при каждом старте | |

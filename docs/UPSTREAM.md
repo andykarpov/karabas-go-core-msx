@@ -14,7 +14,7 @@
 
 | Файл | Язык | Что это | Правки |
 |---|---|---|---|
-| `msx1.v` | Verilog | машина: T80, VDP, PPI, PSG, слоты, мультиплексор шины | порт памяти `mem_*` и карта SRAM вместо BRAM / SDRAM; объявления проводов перед использованием; массив `compr` как `case`; `HALT_n` — выход |
+| `msx1.v` | Verilog | машина: T80, VDP, PPI, PSG, слоты, мультиплексор шины | порт памяти `mem_*` и карта SRAM вместо BRAM / SDRAM; объявления проводов перед использованием; массив `compr` как `case`; `HALT_n` — выход; `ram_mapper` (Ф5) и вход `ram_mapper_en` |
 | `T80/` | VHDL | Z80 (`t80pa`; `T80s.vhd` не в prj) | нет |
 | `vdp18/` | VHDL | TMS9918A (Arnim Läuger) | `entity work.` в инстансах; синхронный сброс счётчиков `hor_vert` |
 | `jt49/` | Verilog | AY-3-8910 (jotego); `filter/` не в prj | нет |
@@ -22,6 +22,7 @@
 | `keyboard.vhd` | VHDL | PS/2 (`ps2_key` MiSTer) → матрица MSX | нет; заменяется своим HID (Ф1) |
 | `cv_clock.vhd` | VHDL | 3,58 МГц из 10,7 МГц | нет |
 | `io_decoder.v`, `memory_mapper.v` | Verilog | порты I/O, первичные слоты | `memory_mapper`: регистр `enable` на `clk` |
+| `ram_mapper.v` | Verilog | — | **свой** (Ф5): memory mapper RAM слота 3, порты FC–FF, 512 КБ (32 сегмента по 16 КБ) |
 | `ls74.v` (был `.sv`) | SV → свой Verilog | 74LS74 для WAIT и строба PSG | переписан на `clk` с enable (upstream тактировался `clk_en_3m58_p`) |
 | `slots.v` (`sv2v`) | SV | слоты 1–3, картриджи A / B, FDD | RAM слота 3 и ROM картриджа — в SRAM; `last_loadRom` на `clk`; вход `fdd_rom_en` |
 | `cart/rom.v`, `rom_detect.v`, мапперы (`konami`, `konami_scc`, `ascii8`, `ascii16`, `gamemaster2`) | Verilog | картридж, автоопределение маппера по потоку загрузки | `rom_detect`: `reg` из always наружу, конвейер счётчиков, `mapper` / `offset` зарегистрированы (тайминг); `ascii16`: синхронный сброс |

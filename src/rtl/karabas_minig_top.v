@@ -17,7 +17,8 @@
    0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
    disk drive without its ROM)
    5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Tape input (CAS file / TAPE_IN)
-   9 Video (PAL / NTSC)   10 Joysticks (swap)   11 BIOS (FL 2)   12 Reset   13 Eject carts
+   9 RAM (512K mapper / 64K)   10 Video (PAL / NTSC)   11 Joysticks (swap)   12 BIOS (FL 2)
+   13 Reset   14 Eject carts
 */
 
 module karabas_minig_top (
@@ -316,8 +317,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [14*8-1:0] sw;
-kg_soft_switches #(.N(14)) soft_switches (
+wire [15*8-1:0] sw;
+kg_soft_switches #(.N(15)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -329,10 +330,11 @@ wire sw_fdd = sw[4*8 +: 2] != 2'd0;
 wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
 wire sw_tape_rewind = sw[7*8];
 wire sw_tape_line = sw[8*8];
-wire sw_ntsc = sw[9*8];
-wire sw_joy_swap = sw[10*8];
-wire sw_reset = sw[12*8];
-wire sw_eject = sw[13*8];
+wire sw_ram64 = sw[9*8];
+wire sw_ntsc = sw[10*8];
+wire sw_joy_swap = sw[11*8];
+wire sw_reset = sw[13*8];
+wire sw_eject = sw[14*8];
 
 // ------------------------------------------------------------------ the machine
 
@@ -364,6 +366,7 @@ msx_system msx (
 	.eject(sw_eject),
 	.fdd(sw_fdd),
 	.fdd_rom_en(sw_fdd_rom),
+	.ram_mapper(~sw_ram64),
 	.img_mounted(img_mounted),
 	.img_size(img_size),
 	.img_data_wr(img_data_wr),

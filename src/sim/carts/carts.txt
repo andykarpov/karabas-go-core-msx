@@ -1,9 +1,13 @@
 # The cartridge tests of run_carts.sh: name, cartridge (sim/build/carts, mkcarts.py), mapper switch
-# (0 = auto), frames, the CRC-32 of the last output frame (sim_sys --hash). The frame shows
-# "<MAPPER> <bank digits> OK" under the C-BIOS screen; "wrong" is Konami with the ASCII 8 mapper,
-# which must not reach OK (its init writes 6000 and maps its own code away).
+# (0 = auto), frames, the CRC-32 of the last output frame (sim_sys --hash), more sim_sys arguments.
+# The frame shows "<MAPPER> <bank digits> OK" under the C-BIOS screen; "wrong" is Konami with the
+# ASCII 8 mapper, which must not reach OK (its init writes 6000 and maps its own code away).
+# rammap: the memory mapper of the RAM, "RAMMAP 20 OK"; rammap64 the same with the RAM of 64 KB,
+# which must show "RAMMAP 00 FAIL".
 konami      konami.rom      0 200 5ce4052c
 konami_scc  konami_scc.rom  0 200 f608e9ab
 ascii8      ascii8.rom      0 200 9260ae50
 ascii16     ascii16.rom     0 200 9cfa9a8f
 wrong       konami.rom      5 200 efe92f55
+rammap      rammap.rom      0 200 15b5c173
+rammap64    rammap.rom      0 200 d2f0a01e --ram64

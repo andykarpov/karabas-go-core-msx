@@ -1,7 +1,7 @@
 // sim_sys: tb_sys (msx_system + msx_video + SRAM model) under verilator.
 //
 //   sim_sys --rom FILE:ADDR ... [--cart FILE] [--cart-b FILE] [--bios FILE] [--mapper-a N]
-//           [--pal] [--frames N] [--ppm OUT] [--every N] [--key F:CODE[,CODE]] [--hash]
+//           [--pal] [--ram64] [--frames N] [--ppm OUT] [--every N] [--key F:CODE[,CODE]] [--hash]
 //           [--disk FILE.dsk [--fdd-latency MS] [--fdd-drop N] [--save-disk OUT]]
 //
 // The ROMs go in through the ROM loader of the mcu (rom_active, one byte every 12 clocks, as a
@@ -10,7 +10,7 @@
 // (25.0 MHz), as the PLL of the tops. A frame is a vsync of the 640 x 480 output; --ppm writes the
 // output frame after the last one (or every N with --every, OUT-<n>.ppm). --hash prints a
 // CRC-32 of each written frame. --key F:CODE sends the PS/2 set 2 codes (hex) at frame F, a
-// release (F0 code) 5 frames later. --disk: slot 1 is the disk drive with this image on a model of the
+// release (F0 code) 5 frames later. --ram64: the RAM of 64 KB, without the memory mapper. --disk: slot 1 is the disk drive with this image on a model of the
 // file mounter of the firmware (mcu_clk); SIM_FDD=1 logs its requests.
 #include <cstdio>
 #include <cstdlib>
@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
 	std::vector<std::pair<std::string, uint32_t>> roms;
 	std::string cart_a, cart_b, bios, ppm;
 	int nframes = 60, every = 0, mapper_a = 0;
-	bool pal = false, hash = false, fdd = false;
+	bool pal = false, hash = false, fdd = false, ram64 = false;
 	std::string save_disk, cas;
 	std::map<int, std::vector<int>> keys;
 	for (int i = 1; i < argc; i++) {
@@ -272,6 +272,7 @@ int main(int argc, char **argv) {
 		else if (a == "--bios") bios = next();
 		else if (a == "--mapper-a") mapper_a = atoi(next().c_str());
 		else if (a == "--pal") pal = true;
+		else if (a == "--ram64") ram64 = true;
 		else if (a == "--disk") { disk = load(next().c_str()); fdd = true; }
 		else if (a == "--fdd-latency") fdd_latency = atof(next().c_str()) * 42857;
 		else if (a == "--fdd-drop") { fdd_drop = atoi(next().c_str()); if (!fdd_drop) fdd_drop = -1; }
@@ -302,6 +303,7 @@ int main(int argc, char **argv) {
 	top->joy_l = 0;
 	top->fdd = fdd;
 	top->fdd_rom_en = !getenv("SIM_NO_DISKROM");
+	top->ram_mapper = !ram64;
 	top->eval();
 	clk_cycles(100);
 	for (auto &r : roms) rom_load(load(r.first.c_str()), r.second);

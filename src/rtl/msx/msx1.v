@@ -47,6 +47,7 @@ module msx1
 	output  [7:0] mem_din,
 	input   [7:0] mem_dout,
 	input         fw_rom_en,
+	input         ram_mapper_en, // karabas: the RAM of slot 3 is 512 KB with a memory mapper (ram_mapper.v)
    
 	input         img_mounted,
 	input  [31:0] img_size,
@@ -284,6 +285,28 @@ memory_mapper memory_mapper
 ); 
 
 //  -----------------------------------------------------------------------------
+//  -- karabas: the memory mapper of the RAM of slot 3 (ports FC-FF)
+//  -----------------------------------------------------------------------------
+wire [4:0] ram_segment;
+wire       ram_mapper_n;
+wire [7:0] d_from_ram_mapper;
+ram_mapper ram_mapper
+(
+	.clk(clk),
+	.reset(reset),
+	.en(ram_mapper_en),
+	.io_addr(a[7:0]),
+	.iorq_n(iorq_n),
+	.m1_n(m1_n),
+	.wr_n(wr_n),
+	.din(d_from_cpu),
+	.page(a[15:14]),
+	.segment(ram_segment),
+	.sel_n(ram_mapper_n),
+	.dout(d_from_ram_mapper)
+);
+
+//  -----------------------------------------------------------------------------
 //  -- CPU data multiplex
 //  ----------------------------------------------------------------------------- 
 assign d_to_cpu = ~(CS01_n | SLTSL_n[0]) ? rom_q :
@@ -294,6 +317,7 @@ assign d_to_cpu = ~(CS01_n | SLTSL_n[0]) ? rom_q :
 						~(vdp_n | rd_n)        ? d_from_vdp :
 						~(psg_n | rd_n)        ? d_from_psg :
 						~(ppi_n | rd_n)        ? d_from_8255 : 
+						~(ram_mapper_n | rd_n) ? d_from_ram_mapper : // karabas
 						                         8'hFF;
 
 //  -----------------------------------------------------------------------------
@@ -416,8 +440,9 @@ slots slots
 //  -----------------------------------------------------------------------------
 //  -- karabas: the SRAM map (byte addresses)
 //  -----------------------------------------------------------------------------
-// 000000 BIOS 32 KB (slot 0, 0000-7FFF)      010000 RAM 64 KB (slot 3)
-// 008000 firmware ROM 16 KB (slot 0, 8000-BFFF)   100000 cartridge B, 200000 cartridge A, 1 MB each
+// 000000 BIOS 32 KB (slot 0, 0000-7FFF)      080000 RAM 512 KB of slot 3 (ram_mapper, segment n at
+// 008000 firmware ROM 16 KB (slot 0, 8000-BFFF)   080000 + n * 16 KB; without the mapper 64 KB, segments 0-3)
+// 100000 cartridge B, 200000 cartridge A, 1 MB each
 // 300000 the disk image (msx_fdd_cache, 768 KB)   3C0000 free (the tape, Ф3)
 // The cartridges are at the addresses of the MiSTer SDRAM, bit 22 = slot A; a ROM file over 1 MB
 // is cut (the rest is not written). The SRAM is read all the time (msx_sram); a write is a level
@@ -434,7 +459,7 @@ assign mem_addr = ioctl_isBIOS            ? {6'h00, ioctl_addr[15:0]} :
                   ioctl_isROMB            ? {2'b01, ioctl_addr[19:0]} :
                   ~(CS01_n | SLTSL_n[0])  ? {7'h00, a[14:0]} :
                   ~(CS2_n  | SLTSL_n[0])  ? {8'h02, a[13:0]} :
-                  ~SLTSL_n[3]             ? {6'h01, a} :
+                  ~SLTSL_n[3]             ? {3'b001, ram_segment, a[13:0]} :
                                             cart_addr;
 assign mem_we  = ioctl_download ? ioctl_wr & ioctl_mem : ram_we;
 assign mem_din = ioctl_download ? ioctl_dout : d_from_cpu;

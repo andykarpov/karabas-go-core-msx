@@ -60,6 +60,7 @@ module msx_system #(
 	output wire tape_out,      // TAPE_OUT: the cassette write data of the PPI (CSAVE)
 	input wire eject,          // the cartridges off (a reset as well)
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
+	input wire ram_mapper,     // the RAM of slot 3 is 512 KB with the memory mapper (ports FC-FF), else 64 KB
 	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
 	                           // INIT of the Philips disk ROM, which needs a real BIOS with BASIC)
 
@@ -149,11 +150,12 @@ end
 // slot A of MiSTer: 9 is the disk drive
 wire [3:0] slot_a = fdd ? 4'd9 : mapper_a;
 
-reg [7:0] mappers_d = 8'd0;
+// a change of the mappers or of the RAM resets the machine
+reg [8:0] mappers_d = 9'd0;
 reg mapper_reset = 1'b0;
 always @(posedge clk) begin
-	mappers_d <= { mapper_b, slot_a };
-	mapper_reset <= mappers_d != { mapper_b, slot_a };
+	mappers_d <= { ram_mapper, mapper_b, slot_a };
+	mapper_reset <= mappers_d != { ram_mapper, mapper_b, slot_a };
 end
 
 wire msx_reset = reset || rom_active || ioctl_download || mapper_reset || eject;
@@ -232,6 +234,7 @@ msx1 msx1 (
 	.mem_din(mem_din),
 	.mem_dout(mem_dout),
 	.fw_rom_en(fw_rom_en),
+	.ram_mapper_en(ram_mapper),
 	// the disk drive: img_sdc and the copy of the image in the SRAM (msx_fdd_cache; the firmware opens the image read-write
 	// when it can and gives no write protect)
 	.img_mounted(sdc_img_mounted[0]),
