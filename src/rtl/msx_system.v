@@ -55,6 +55,9 @@ module msx_system #(
 	input wire pal,
 	input wire joy_swap,
 	input wire tape_rewind,    // the OSD item, the CAS file from its start
+	input wire tape_line,      // the cassette input is TAPE_IN (a tape recorder), not the CAS file
+	input wire tape_in,        // TAPE_IN of the board (asynchronous)
+	output wire tape_out,      // TAPE_OUT: the cassette write data of the PPI (CSAVE)
 	input wire eject,          // the cartridges off (a reset as well)
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
 	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
@@ -185,7 +188,10 @@ wire [21:0] mem_addr;
 wire [15:0] msx_audio;
 wire mem_we;
 wire [7:0] mem_din, mem_dout;
-wire cas_motor, cas_audio;
+wire cas_motor, cas_audio, cas_write;
+wire tape_in_s;
+kg_sync tape_in_sync (.clk(clk), .d(tape_in), .q(tape_in_s));
+assign tape_out = cas_write;
 
 msx1 msx1 (
 	.clk(clk),
@@ -215,7 +221,8 @@ msx1 msx1 (
 	.ioctl_wait(),
 	.rom_enabled(rom_enabled),
 	.cas_motor(cas_motor),
-	.cas_audio_in(cas_audio),
+	.cas_out(cas_write),
+	.cas_audio_in(tape_line ? tape_in_s : cas_audio),
 	.slot_A(slot_a),
 	.slot_B(mapper_b),
 	.fdd_rom_en(fdd_rom_en),
