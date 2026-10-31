@@ -63,6 +63,8 @@ module msx_fdd_cache #(
 	input wire [7:0] sdc_byte_in_data,
 	output wire [7:0] sdc_byte_out_data,
 
+	input wire pause,           // no background fill now (a CAS file goes to the SRAM through the same port)
+
 	// SRAM, aux port of msx_sram
 	output reg aux_req = 1'b0,
 	output reg aux_we = 1'b0,
@@ -154,7 +156,7 @@ always @(posedge clk) begin
 				sd_ack <= 1'b1;
 				state <= S_CHECK;
 			end
-			else if (fill_ptr < nsec && !img_mounted) begin
+			else if (fill_ptr < nsec && !img_mounted && !pause) begin
 				lba <= { 21'd0, fill_ptr };
 				for_fdc <= 1'b0;
 				fdc_write <= 1'b0;

@@ -212,9 +212,18 @@ static void rom_load(const std::vector<uint8_t> &d, uint32_t addr) {
 	top->rom_active = 0;
 }
 
+// SIM_FILE_GAP: the clocks between two bytes after the one of file_wr (11; a burst at 32 MHz is
+// a byte in 10.7 clocks)
 static void file_load(const std::vector<uint8_t> &d, int slot) {
-	top->file_slot = slot;
+	int gap = getenv("SIM_FILE_GAP") ? atoi(getenv("SIM_FILE_GAP")) : 11;
+	// as the firmware (core_ioctl_send): IOCTL_STATE 1 first, IOCTL_SLOT (file_reset, the slot) after it,
+	// so file_active is on with the slot of the file before for a while
 	top->file_active = 1;
+	clk_cycles(40);
+	top->file_slot = slot;
+	top->file_reset = 1;
+	clk_cycles(1);
+	top->file_reset = 0;
 	clk_cycles(4);
 	for (size_t i = 0; i < d.size(); i++) {
 		top->file_addr = i;
@@ -222,7 +231,7 @@ static void file_load(const std::vector<uint8_t> &d, int slot) {
 		top->file_wr = 1;
 		clk_cycles(1);
 		top->file_wr = 0;
-		clk_cycles(11);
+		clk_cycles(gap);
 	}
 	clk_cycles(4);
 	top->file_active = 0;
@@ -252,7 +261,7 @@ int main(int argc, char **argv) {
 	std::string cart_a, cart_b, bios, ppm;
 	int nframes = 60, every = 0, mapper_a = 0;
 	bool pal = false, hash = false, fdd = false;
-	std::string save_disk;
+	std::string save_disk, cas;
 	std::map<int, std::vector<int>> keys;
 	for (int i = 1; i < argc; i++) {
 		std::string a = argv[i];
@@ -267,6 +276,7 @@ int main(int argc, char **argv) {
 		else if (a == "--fdd-latency") fdd_latency = atof(next().c_str()) * 42857;
 		else if (a == "--fdd-drop") { fdd_drop = atoi(next().c_str()); if (!fdd_drop) fdd_drop = -1; }
 		else if (a == "--save-disk") save_disk = next();
+		else if (a == "--cas") cas = next();
 		else if (a == "--frames") nframes = atoi(next().c_str());
 		else if (a == "--ppm") ppm = next();
 		else if (a == "--every") every = atoi(next().c_str());
@@ -297,9 +307,24 @@ int main(int argc, char **argv) {
 	for (auto &r : roms) rom_load(load(r.first.c_str()), r.second);
 	if (!bios.empty()) file_load(load(bios.c_str()), 2);
 	if (!cart_a.empty()) file_load(load(cart_a.c_str()), 0);
-	if (!cart_b.empty()) file_load(load(cart_b.c_str()), 1);
+	if (!cart_b.empty() && cas.empty()) file_load(load(cart_b.c_str()), 1);
 	if (fdd) mount_at = clks + 1000;
 	clk_cycles(2000);
+	// the CAS file after the mount: its load runs with the fill of the disk image in the SRAM
+	if (!cas.empty()) {
+		std::vector<uint8_t> d = load(cas.c_str());
+		file_load(d, 3);
+		clk_cycles(2000);
+		size_t bad = 0;
+		for (size_t i = 0; i < d.size() && i < 0x40000; i++) {
+			top->dbg_sram_addr = 0x3C0000 + i;
+			top->eval();
+			if (top->dbg_sram_q != d[i] && bad++ < 4) printf("cas: SRAM %06zx %02x, file %02x\n", 0x3C0000 + i, top->dbg_sram_q, d[i]);
+		}
+		printf("cas: %zu bytes, %zu wrong in the SRAM\n", d.size(), bad);
+		// cartridge B after the CAS file: its load starts with the slot of the CAS (see file_load)
+		if (!cart_b.empty()) file_load(load(cart_b.c_str()), 1);
+	}
 	top->reset = 0;
 	int f0 = frames;
 	std::map<int, std::vector<int>> release;

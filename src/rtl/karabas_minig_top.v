@@ -16,8 +16,8 @@
  Soft switches (the index of the item in the osd of core_minig.json, file items included):
    0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
    disk drive without its ROM)
-   5 Disk A (F 0)   6 Video (PAL / NTSC)   7 Joysticks (swap)   8 BIOS (FL 2)   9 Reset
-   10 Eject carts
+   5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Video (PAL / NTSC)   9 Joysticks (swap)
+   10 BIOS (FL 2)   11 Reset   12 Eject carts
 */
 
 module karabas_minig_top (
@@ -199,7 +199,7 @@ wire [12:0] joy_l, joy_r;
 wire rom_active, rom_wr;
 wire [31:0] rom_addr;
 wire [7:0] rom_data;
-wire file_active, file_wr;
+wire file_reset, file_active, file_wr;
 wire [7:0] file_slot, file_data;
 wire [31:0] file_addr;
 wire [15:0] softsw_command, osd_command;
@@ -250,6 +250,7 @@ kg_mcu #(
 	.ROMLOAD_DATA(rom_data),
 	.ROMLOAD_WR(rom_wr),
 
+	.FILELOAD_RESET(file_reset),
 	.FILELOAD_ACTIVE(file_active),
 	.FILELOAD_ADDR(file_addr),
 	.FILELOAD_DATA(file_data),
@@ -316,8 +317,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [11*8-1:0] sw;
-kg_soft_switches #(.N(11)) soft_switches (
+wire [13*8-1:0] sw;
+kg_soft_switches #(.N(13)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -327,10 +328,11 @@ wire [3:0] sw_mapper_a = sw[1*8 +: 4];
 wire [3:0] sw_mapper_b = sw[3*8 +: 4];
 wire sw_fdd = sw[4*8 +: 2] != 2'd0;
 wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
-wire sw_ntsc = sw[6*8];
-wire sw_joy_swap = sw[7*8];
-wire sw_reset = sw[9*8];
-wire sw_eject = sw[10*8];
+wire sw_tape_rewind = sw[7*8];
+wire sw_ntsc = sw[8*8];
+wire sw_joy_swap = sw[9*8];
+wire sw_reset = sw[11*8];
+wire sw_eject = sw[12*8];
 
 // ------------------------------------------------------------------ the machine
 
@@ -345,6 +347,7 @@ msx_system msx (
 	.rom_addr(rom_addr),
 	.rom_data(rom_data),
 	.rom_wr(rom_wr),
+	.file_reset(file_reset),
 	.file_active(file_active),
 	.file_slot(file_slot),
 	.file_addr(file_addr),
@@ -354,6 +357,7 @@ msx_system msx (
 	.mapper_b(sw_mapper_b),
 	.pal(~sw_ntsc),
 	.joy_swap(sw_joy_swap),
+	.tape_rewind(sw_tape_rewind),
 	.eject(sw_eject),
 	.fdd(sw_fdd),
 	.fdd_rom_en(sw_fdd_rom),
