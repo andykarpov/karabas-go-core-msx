@@ -61,30 +61,35 @@ Nextor on a hard disk image, the save RAM of Game Master 2 and other battery car
    (Menu+F1). The machine starts the cartridge when it is loaded.
 
 Disks and tapes need a real MSX BIOS (OSD item BIOS): C-BIOS hangs in the INIT of the disk ROM.
-For a disk: Slot 1 = Disk drive, then a `.dsk` in Disk A. For a tape: a `.cas` in Tape, then
+For a disk: Machine > Slot 1 = Disk drive, then a `.dsk` in Disk A. For a tape: a `.cas` in Tape, then
 `RUN"CAS:"` (BASIC programs), `BLOAD"CAS:",R` (machine code) or `CLOAD` + `RUN`; Tape rewind starts
 the file again.
 
 ## OSD menu
 
+The main page has the media, video and reset items; the machine settings are on the page Machine
+(Enter / Right opens it, Esc goes back). The firmware v26103113 or later shows the pages; an older
+one shows all items in one list.
+
 | Item | Values | Hotkey |
 |---|---|---|
-| Cart A | a cartridge for slot 1 | Menu+F1 |
-| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K | |
+| Cart A | a cartridge for slot 1 (shown when Slot 1 = Cartridge A) | Menu+F1 |
 | Cart B | a cartridge for slot 2 | Menu+F2 |
+| Disk A | the `.dsk` image of the drive (shown when Slot 1 is a disk drive) | Menu+F3 |
+| Tape | a `.cas` file (grey when Tape input = Tape in) | Menu+F4 |
+| Tape rewind | the tape from its start (as Tape) | Menu+R |
+| Video | PAL 50Hz / NTSC 60Hz | Menu+V |
+| Joysticks | Normal / Swap | Menu+J |
+| Reset | resets the MSX | F12 |
+| Eject carts | removes both cartridges (and resets) | Menu+E |
+| **Machine** ► | | |
+| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K (grey when Slot 1 is a disk drive) | |
 | Mapper B | as Mapper A | |
 | Slot 1 | Cartridge A / Disk drive / Disk (no ROM) | Menu+D |
-| Disk A | the `.dsk` image of the drive | Menu+F3 |
-| Tape | a `.cas` file | Menu+F4 |
-| Tape rewind | the tape from its start | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
 | RAM | 512K mapper / 64K | |
 | FM (MSX-MUSIC) | On / Off | |
-| Video | PAL 50Hz / NTSC 60Hz | Menu+V |
-| Joysticks | Normal / Swap | Menu+J |
 | BIOS | a BIOS file, loaded at every start | |
-| Reset | resets the MSX | F12 |
-| Eject carts | removes both cartridges (and resets) | Menu+E |
 
 "Menu" is the Windows key of the keyboard. Loading a cartridge or a BIOS, or changing a mapper or
 Slot 1, resets the machine; loading a tape does not. Disk (no ROM) is the drive without its disk ROM

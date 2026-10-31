@@ -59,30 +59,35 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
    Машина запускает картридж сразу после загрузки.
 
 Для дисков и кассет нужен настоящий BIOS MSX (пункт BIOS): C-BIOS зависает в INIT Disk ROM.
-Диск: Slot 1 = Disk drive, затем `.dsk` в Disk A. Кассета: `.cas` в Tape, затем `RUN"CAS:"`
+Диск: Machine > Slot 1 = Disk drive, затем `.dsk` в Disk A. Кассета: `.cas` в Tape, затем `RUN"CAS:"`
 (программы на BASIC), `BLOAD"CAS:",R` (машинный код) или `CLOAD` + `RUN`; Tape rewind ставит файл
 на начало.
 
 ## Меню OSD
 
+На главной странице — носители, видео и сброс; настройки машины — на странице Machine (Enter / Right
+открывают её, Esc возвращает). Страницы показывает прошивка v26103113 и новее; старая показывает
+все пункты одним списком.
+
 | Пункт | Значения | Клавиши |
 |---|---|---|
-| Cart A | картридж в слот 1 | Menu+F1 |
-| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K | |
+| Cart A | картридж в слот 1 (виден при Slot 1 = Cartridge A) | Menu+F1 |
 | Cart B | картридж в слот 2 | Menu+F2 |
+| Disk A | образ `.dsk` дисковода (виден, когда в Slot 1 дисковод) | Menu+F3 |
+| Tape | файл `.cas` (серый при Tape input = Tape in) | Menu+F4 |
+| Tape rewind | кассета на начало (как Tape) | Menu+R |
+| Video | PAL 50Hz / NTSC 60Hz | Menu+V |
+| Joysticks | Normal / Swap | Menu+J |
+| Reset | сброс MSX | F12 |
+| Eject carts | вынуть оба картриджа (и сброс) | Menu+E |
+| **Machine** ► | | |
+| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K (серый, когда в Slot 1 дисковод) | |
 | Mapper B | как Mapper A | |
 | Slot 1 | Cartridge A / Disk drive / Disk (no ROM) | Menu+D |
-| Disk A | образ `.dsk` дисковода | Menu+F3 |
-| Tape | файл `.cas` | Menu+F4 |
-| Tape rewind | кассета на начало | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
 | RAM | 512K mapper / 64K | |
 | FM (MSX-MUSIC) | On / Off | |
-| Video | PAL 50Hz / NTSC 60Hz | Menu+V |
-| Joysticks | Normal / Swap | Menu+J |
 | BIOS | файл BIOS, загружается при каждом старте | |
-| Reset | сброс MSX | F12 |
-| Eject carts | вынуть оба картриджа (и сброс) | Menu+E |
 
 «Menu» — клавиша Windows на клавиатуре. Загрузка картриджа или BIOS, смена маппера или Slot 1
 сбрасывают машину; загрузка кассеты — нет. Disk (no ROM) — дисковод без Disk ROM (только его
