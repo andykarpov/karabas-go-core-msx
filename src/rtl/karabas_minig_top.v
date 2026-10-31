@@ -14,7 +14,7 @@
  karabas-go-notes ft-clk-out-required). HDMI: kg_dcm 5 x clk_vga and its inverse.
 
  Soft switches (the index of the item in the osd of core_minig.json, file items included):
-   0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
+   0 Cart A (FL 4)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
    disk drive without its ROM)
    5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Tape input (CAS file / TAPE_IN)
    9 RAM (512K mapper / 64K)   10 Video (PAL / NTSC)   11 Joysticks (swap)   12 BIOS (FL 2)

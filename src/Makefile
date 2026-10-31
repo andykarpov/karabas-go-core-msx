@@ -62,6 +62,7 @@ karabas_$(1).bin: karabas_$(1).ngc karabas_$(1).ucf karabas_$(1).ut
 	$(XIL) bitgen -intstyle ise -f karabas_$(1).ut karabas_$(1).ncd
 
 $(KG_$(1)): karabas_$(1).bin $(JSON_$(1))
+	python3 tools/check_osd.py $(JSON_$(1))
 	python3 make_core.py $(JSON_$(1)) $$@
 
 $(1): $(KG_$(1))

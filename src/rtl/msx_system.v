@@ -11,8 +11,9 @@
  - the ROM loader (the roms of core.json, at core start): rom_addr is the SRAM byte address
    (000000 the BIOS, 008000 the ROM of slot 0 page 2: C-BIOS main and logo), the machine is held
    in reset while rom_active;
- - the file loader (FL items, ioctl, one write per byte): file_slot 0 = cartridge A (slot 1 of the
-   MSX), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
+ - the file loader (FL items, ioctl, one write per byte): file_slot 4 = cartridge A (slot 1 of the
+   MSX; not 0: the firmware keeps the F and FL items in one array of file slots, and slot 0 is the
+   disk of the F item), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
    page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there),
    3 = a .cas file of the cassette (msx_tape, in the SRAM from 3C0000; no reset).
    The machine is in reset while a cartridge or a BIOS file loads, as MiSTer has it. A cartridge is on from its load
@@ -123,7 +124,7 @@ always @(posedge clk)
 	else if (file_reset)
 		slot_ok <= 1'b1;
 wire file_on = file_active && slot_ok;
-wire ioctl_isROMA = file_on && file_slot == 8'd0;
+wire ioctl_isROMA = file_on && file_slot == 8'd4;
 wire ioctl_isROMB = file_on && file_slot == 8'd1;
 wire ioctl_isBIOS = file_on && file_slot == 8'd2;
 wire ioctl_isCAS = file_on && file_slot == 8'd3;

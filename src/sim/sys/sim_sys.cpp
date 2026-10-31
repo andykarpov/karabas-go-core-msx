@@ -5,7 +5,7 @@
 //           [--disk FILE.dsk [--fdd-latency MS] [--fdd-drop N] [--save-disk OUT]]
 //
 // The ROMs go in through the ROM loader of the mcu (rom_active, one byte every 12 clocks, as a
-// burst at 32 MHz), the files through the file loader (FL slot 0 = cartridge A, 1 = B, 2 = BIOS).
+// burst at 32 MHz), the files through the file loader (FL slot 4 = cartridge A, 1 = B, 2 = BIOS).
 // The clocks: a tick of the VCO (600 MHz), clk every 14 ticks (42.857 MHz), clk_vga every 24
 // (25.0 MHz), as the PLL of the tops. A frame is a vsync of the 640 x 480 output; --ppm writes the
 // output frame after the last one (or every N with --every, OUT-<n>.ppm). --hash prints a
@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
 	clk_cycles(100);
 	for (auto &r : roms) rom_load(load(r.first.c_str()), r.second);
 	if (!bios.empty()) file_load(load(bios.c_str()), 2);
-	if (!cart_a.empty()) file_load(load(cart_a.c_str()), 0);
+	if (!cart_a.empty()) file_load(load(cart_a.c_str()), 4);
 	if (!cart_b.empty() && cas.empty()) file_load(load(cart_b.c_str()), 1);
 	if (fdd) mount_at = clks + 1000;
 	clk_cycles(2000);
