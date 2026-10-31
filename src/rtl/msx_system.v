@@ -13,8 +13,9 @@
    in reset while rom_active;
  - the file loader (FL items, ioctl, one write per byte): file_slot 0 = cartridge A (slot 1 of the
    MSX), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
-   page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there).
-   The machine is in reset while a file loads, as MiSTer has it. A cartridge is on from its load
+   page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there),
+   3 = a .cas file of the cassette (msx_tape, in the SRAM from 3C0000; no reset).
+   The machine is in reset while a cartridge or a BIOS file loads, as MiSTer has it. A cartridge is on from its load
    until eject.
  The disk drive (fdd: slot 1 is the Philips VY-0010 with its WD1793 and disk ROM in place of
  cartridge A): the .dsk image of the F item, slot 0 of the file mounter, through img_sdc; a copy of
@@ -27,7 +28,10 @@
  clk is 42.857 MHz (12 x 3.57 MHz): ce_10m7 is every fourth clock, as in MiSTer (42.95 MHz there).
 */
 
-module msx_system (
+module msx_system #(
+	parameter TAPE_SILENT = 1000,   // the CAS player (msx_tape): shorter in the simulation
+	parameter TAPE_SYNC = 1454
+) (
 	input wire clk,
 	input wire reset,          // the reset switch, the mcu busy
 
@@ -38,6 +42,7 @@ module msx_system (
 	input wire rom_wr,
 
 	// the file loader of the mcu (FL items)
+	input wire file_reset,     // one clock with a new file_slot (IOCTL_SLOT)
 	input wire file_active,
 	input wire [7:0] file_slot,
 	input wire [31:0] file_addr,
@@ -49,6 +54,7 @@ module msx_system (
 	input wire [3:0] mapper_b,
 	input wire pal,
 	input wire joy_swap,
+	input wire tape_rewind,    // the OSD item, the CAS file from its start
 	input wire eject,          // the cartridges off (a reset as well)
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
 	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
@@ -92,18 +98,31 @@ module msx_system (
 
 // ------------------------------------------------------------------ clock enable
 
-reg [1:0] div = 2'd0;
+reg [2:0] div = 3'd0;
 reg ce_10m7 = 1'b0;
+reg ce_5m3 = 1'b0;        // the clock of the CAS player, as MiSTer has it
 always @(posedge clk) begin
-	div <= div + 2'd1;
-	ce_10m7 <= div == 2'd0;
+	div <= div + 3'd1;
+	ce_10m7 <= div[1:0] == 2'd0;
+	ce_5m3 <= div == 3'd0;
 end
 
 // ------------------------------------------------------------------ loads
 
-wire ioctl_isROMA = file_active && file_slot == 8'd0;
-wire ioctl_isROMB = file_active && file_slot == 8'd1;
-wire ioctl_isBIOS = file_active && file_slot == 8'd2;
+// the firmware turns file_active on before it sends the slot (core_ioctl_send: IOCTL_STATE 1, then
+// IOCTL_SLOT): until file_reset file_slot is the one of the file before (a cartridge after a CAS file
+// started as a CAS load and emptied it). A load counts from its file_reset.
+reg slot_ok = 1'b0;
+always @(posedge clk)
+	if (!file_active)
+		slot_ok <= 1'b0;
+	else if (file_reset)
+		slot_ok <= 1'b1;
+wire file_on = file_active && slot_ok;
+wire ioctl_isROMA = file_on && file_slot == 8'd0;
+wire ioctl_isROMB = file_on && file_slot == 8'd1;
+wire ioctl_isBIOS = file_on && file_slot == 8'd2;
+wire ioctl_isCAS = file_on && file_slot == 8'd3;
 wire ioctl_download = ioctl_isROMA || ioctl_isROMB || ioctl_isBIOS;
 
 reg [1:0] rom_enabled = 2'b00;
@@ -166,6 +185,7 @@ wire [21:0] mem_addr;
 wire [15:0] msx_audio;
 wire mem_we;
 wire [7:0] mem_din, mem_dout;
+wire cas_motor, cas_audio;
 
 msx1 msx1 (
 	.clk(clk),
@@ -194,8 +214,8 @@ msx1 msx1 (
 	.ioctl_isFWBIOS(1'b0),
 	.ioctl_wait(),
 	.rom_enabled(rom_enabled),
-	.cas_motor(),
-	.cas_audio_in(1'b0),
+	.cas_motor(cas_motor),
+	.cas_audio_in(cas_audio),
 	.slot_A(slot_a),
 	.slot_B(mapper_b),
 	.fdd_rom_en(fdd_rom_en),
@@ -226,9 +246,12 @@ msx1 msx1 (
 wire fdd_sdc_rd, fdd_sdc_wr;
 wire [31:0] sdc_sector;
 wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe;
-wire aux_req, aux_we, aux_ack;
-wire [21:0] aux_addr;
-wire [7:0] aux_din, aux_dout;
+wire fdd_aux_req, fdd_aux_we, fdd_aux_ack;
+wire [21:0] fdd_aux_addr;
+wire [7:0] fdd_aux_din;
+wire tape_loading;
+wire aux_ack;
+wire [7:0] aux_dout;
 wire [2:0] sdc_slot;
 wire [8:0] sdc_byte_addr;
 wire [7:0] sdc_byte_in_data, sdc_byte_out_data;
@@ -291,15 +314,67 @@ msx_fdd_cache #(.BASE(22'h300000), .MAXSEC(1536)) fdd_cache (
 	.sdc_byte_addr(sdc_byte_addr),
 	.sdc_byte_in_data(sdc_byte_in_data),
 	.sdc_byte_out_data(sdc_byte_out_data),
-	.aux_req(aux_req),
-	.aux_we(aux_we),
-	.aux_addr(aux_addr),
-	.aux_din(aux_din),
-	.aux_ack(aux_ack),
+	.pause(tape_loading),
+	.aux_req(fdd_aux_req),
+	.aux_we(fdd_aux_we),
+	.aux_addr(fdd_aux_addr),
+	.aux_din(fdd_aux_din),
+	.aux_ack(fdd_aux_ack),
 	.aux_dout(aux_dout),
 	.filling(fdd_filling),
 	.filled(fdd_filled)
 );
+
+// ------------------------------------------------------------------ the cassette
+
+wire tape_aux_req, tape_aux_we, tape_aux_ack;
+wire [21:0] tape_aux_addr;
+wire [7:0] tape_aux_din;
+
+msx_tape #(.BASE(22'h3C0000), .TAPE_SILENT(TAPE_SILENT), .TAPE_SYNC(TAPE_SYNC)) tape (
+	.clk(clk),
+	.ce_5m3(ce_5m3),
+	.motor(cas_motor),
+	.rewind(tape_rewind || ioctl_isCAS || reset || rom_active),
+	.load(ioctl_isCAS),
+	.file_addr(file_addr),
+	.file_data(file_data),
+	.file_wr(file_wr),
+	.cas_out(cas_audio),
+	.loading(tape_loading),
+	.aux_req(tape_aux_req),
+	.aux_we(tape_aux_we),
+	.aux_addr(tape_aux_addr),
+	.aux_din(tape_aux_din),
+	.aux_ack(tape_aux_ack),
+	.aux_dout(aux_dout)
+);
+
+// ------------------------------------------------------------------ the aux port: disk cache and cassette in turn
+
+// a request is held until its ack; the owner is taken for one request, the other one first when both wait
+reg aux_own = 1'b0;      // 0 the disk cache, 1 the cassette
+reg aux_grant = 1'b0;
+always @(posedge clk) begin
+	if (!aux_grant) begin
+		if (tape_aux_req && (!aux_own || !fdd_aux_req)) begin
+			aux_own <= 1'b1;
+			aux_grant <= 1'b1;
+		end
+		else if (fdd_aux_req) begin
+			aux_own <= 1'b0;
+			aux_grant <= 1'b1;
+		end
+	end
+	else if (aux_ack)
+		aux_grant <= 1'b0;
+end
+wire aux_req = aux_grant && (aux_own ? tape_aux_req : fdd_aux_req);
+wire aux_we = aux_own ? tape_aux_we : fdd_aux_we;
+wire [21:0] aux_addr = aux_own ? tape_aux_addr : fdd_aux_addr;
+wire [7:0] aux_din = aux_own ? tape_aux_din : fdd_aux_din;
+assign fdd_aux_ack = aux_ack && aux_grant && !aux_own;
+assign tape_aux_ack = aux_ack && aux_grant && aux_own;
 
 always @(posedge clk)
 	audio <= msx_audio;

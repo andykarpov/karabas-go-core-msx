@@ -26,6 +26,7 @@
 | `slots.v` (`sv2v`) | SV | слоты 1–3, картриджи A / B, FDD | RAM слота 3 и ROM картриджа — в SRAM; `last_loadRom` на `clk`; вход `fdd_rom_en` |
 | `cart/rom.v`, `rom_detect.v`, мапперы (`konami`, `konami_scc`, `ascii8`, `ascii16`, `gamemaster2`) | Verilog | картридж, автоопределение маппера по потоку загрузки | `rom_detect`: `reg` из always наружу, конвейер счётчиков, `mapper` / `offset` зарегистрированы (тайминг); `ascii16`: синхронный сброс |
 | `cart/scc_wave.vhd`, `cart/ram.vhd` | VHDL | SCC (OCM) | `entity work.` |
+| `tape.v` (`sv2v`) | SV | CAS-плеер (MiSTer `tape.sv`) | блокирующие присваивания сигналам других always — неблокирующие (как строит Quartus); `SILENT` / `SYNC` — параметры (короче в симуляции) |
 | `cart/vy0010.v` | Verilog | FDD Philips VY0010 | регистры 7FFC / 7FFD на `clk`; ROM `.mif` → `.hex`; разметка `img_ss` для образов ≤ 360 КБ; вход `rom_en` (ROM отдаёт FF для «Disk (no ROM)») |
 | `cart/wd1793.v` (`sv2v`) | SV | FDC WD1793 (Sorgelig), `RWMODE=1`, `EDSK=0` | `buff_wr` / `spt_addr` объявлены в модуле |
 | `rom/vy0010.mif` → `vy0010.hex` | | Disk ROM VY0010, 16 КБ | `src/tools/mif2hex.py` |

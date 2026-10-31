@@ -18,6 +18,10 @@ module tape (
 	output reg ram_rd;
 	input buff_mem_ready;
 	output wire cas_out;
+	// karabas: the silence before the first header (baud clocks) and the header (bytes) as parameters,
+	// shorter in the simulation (src/sim/tape); the values of MiSTer by default
+	parameter SILENT = 1000;
+	parameter SYNC = 1454;
 	reg [31:0] state = 32'd0;
 	wire [63:0] cas_sig = 64'h1fa6debacc137d74;
 	wire [63:0] sig_pos = cas_sig >> (8'd56 - (ram_a[2:0] << 3));
@@ -61,7 +65,7 @@ module tape (
 			32'd2:
 				if (sig_ok) begin
 					state <= 32'd3;
-					counter <= 1000;
+					counter <= SILENT;
 				end
 				else if (buff_mem_ready && ~ram_rd) begin
 					ram_a <= ram_a + 1'd1;
@@ -72,7 +76,7 @@ module tape (
 					counter <= counter - 1'b1;
 					if (counter == 0) begin
 						state <= 32'd4;
-						counter <= 1454;
+						counter <= SYNC;
 					end
 				end
 			32'd4: begin
@@ -90,7 +94,7 @@ module tape (
 			32'd5:
 				if (sig_ok) begin
 					state <= 32'd4;
-					counter <= 1454;
+					counter <= SYNC;
 					if (buff_mem_ready && ~ram_rd) begin
 						ram_a <= ram_a + 1'd1;
 						ram_rd <= 1;
@@ -106,45 +110,54 @@ module tape (
 		if (rewind)
 			state <= 32'd1;
 	end
+	// karabas: the blocking assignments of sv2v to signals read by other always blocks (byte_pos,
+	// send_bit, output_bit, cnt, ce_baud) are nonblocking now: what Quartus builds from tape.sv
+	// (registers), without the order of the always blocks deciding it in verilator / XST
 	reg [7:0] send_byte;
 	reg [1:0] cnt = 2'h0;
 	reg send_bit;
+	reg [10:0] byte_out;
 	always @(posedge clk) begin : sv2v_autoblock_2
-		reg [10:0] byte_out;
-		if (byte_pos == 0) begin
-			byte_out = (header ? 11'b11111111111 : {2'b11, ram_di, 1'b0});
-			byte_pos = 4'd11;
+		reg [10:0] bo;
+		reg [3:0] bp;
+		bo = byte_out;
+		bp = byte_pos;
+		if (bp == 0) begin
+			bo = (header ? 11'b11111111111 : {2'b11, ram_di, 1'b0});
+			bp = 4'd11;
 		end
 		if (cnt == 0) begin
-			send_bit = byte_out[0];
+			send_bit <= bo[0];
 			if (ce_baud) begin
-				byte_out = {1'b0, byte_out[10:1]};
-				byte_pos = byte_pos - 1'b1;
+				bo = {1'b0, bo[10:1]};
+				bp = bp - 1'b1;
 			end
 		end
+		byte_out <= bo;
+		byte_pos <= bp;
 	end
+	reg bit_out;
 	always @(posedge clk) begin : sv2v_autoblock_3
-		reg bit_out;
 		if (ce_baud) begin
 			if (cnt == 2'h0) begin
-				output_bit = 1;
-				bit_out = send_bit;
+				output_bit <= 1;
+				bit_out <= send_bit;
 			end
 			else
-				output_bit = (bit_out & ~cnt[0]) | (~bit_out & ~cnt[1]);
+				output_bit <= (bit_out & ~cnt[0]) | (~bit_out & ~cnt[1]);
 		end
 	end
+	reg [10:0] baud_div = 11'd0;
 	always @(posedge clk) begin : sv2v_autoblock_4
-		reg [10:0] baud_div;
-		ce_baud = 0;
+		ce_baud <= 0;
 		if (ce_5m3 && play) begin
 			if (baud_div == 11'h000) begin
-				ce_baud = 1;
-				baud_div = 11'd559;
-				cnt = cnt + 1'b1;
+				ce_baud <= 1;
+				baud_div <= 11'd559;
+				cnt <= cnt + 1'b1;
 			end
 			else
-				baud_div = baud_div - 1'b1;
+				baud_div <= baud_div - 1'b1;
 		end
 	end
 endmodule

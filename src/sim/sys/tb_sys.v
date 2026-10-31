@@ -11,6 +11,7 @@ module tb_sys (
 	input wire [31:0] rom_addr,
 	input wire [7:0] rom_data,
 	input wire rom_wr,
+	input wire file_reset,
 	input wire file_active,
 	input wire [7:0] file_slot,
 	input wire [31:0] file_addr,
@@ -23,6 +24,11 @@ module tb_sys (
 	input wire kb_scancode_upd,
 	input wire [12:0] joy_l,
 	input wire fdd,
+	input wire tape_rewind,
+	input wire [21:0] dbg_sram_addr,   // a byte of the SRAM model for sim_sys (the check of a load)
+	output wire [7:0] dbg_sram_q,
+	output wire dbg_cas_out,
+	output wire dbg_cas_motor,
 	input wire fdd_rom_en,
 	input wire [7:0] img_mounted,
 	input wire [63:0] img_size,
@@ -59,12 +65,12 @@ wire [1:0] MWR_N;
 wire [3:0] vdp_col;
 wire vdp_ce_pix, vdp_hor_active, vdp_vert_active;
 
-msx_system sys (
+msx_system #(.TAPE_SILENT(100), .TAPE_SYNC(32)) sys (
 	.clk(clk), .reset(reset),
 	.rom_active(rom_active), .rom_addr(rom_addr), .rom_data(rom_data), .rom_wr(rom_wr),
-	.file_active(file_active), .file_slot(file_slot), .file_addr(file_addr), .file_data(file_data),
+	.file_reset(file_reset), .file_active(file_active), .file_slot(file_slot), .file_addr(file_addr), .file_data(file_data),
 	.file_wr(file_wr),
-	.mapper_a(mapper_a), .mapper_b(mapper_b), .pal(pal), .joy_swap(1'b0), .eject(1'b0), .fdd(fdd), .fdd_rom_en(fdd_rom_en),
+	.mapper_a(mapper_a), .mapper_b(mapper_b), .pal(pal), .joy_swap(1'b0), .tape_rewind(tape_rewind), .eject(1'b0), .fdd(fdd), .fdd_rom_en(fdd_rom_en),
 	.img_mounted(img_mounted), .img_size(img_size), .img_data_wr(img_data_wr), .img_data_addr(img_data_addr),
 	.img_data(img_data), .img_result_wr(img_result_wr), .img_result(img_result), .img_sum(img_sum),
 	.img_q_wr(img_q_wr), .img_q_di(img_q_di), .img_q_ack(img_q_ack), .fdd_active(fdd_active), .fdd_filling(fdd_filling), .fdd_filled(fdd_filled),
@@ -95,6 +101,9 @@ reg [7:0] hi [0:(1<<21)-1];
 integer i;
 initial for (i = 0; i < (1<<21); i = i + 1) begin lo[i] = 8'hFF; hi[i] = 8'hFF; end
 assign MD = (MWR_N == 2'b11) ? { hi[MA], lo[MA] } : 16'bz;
+assign dbg_sram_q = dbg_sram_addr[0] ? hi[dbg_sram_addr[21:1]] : lo[dbg_sram_addr[21:1]];
+assign dbg_cas_out = sys.cas_audio;
+assign dbg_cas_motor = sys.cas_motor;
 // written at the clk edge in the middle of the /WE pulse (msx_sram: from a falling edge to the next)
 always @(posedge clk) begin
 	if (!MWR_N[0]) lo[MA] <= MD[7:0];
