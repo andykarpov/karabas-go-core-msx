@@ -38,6 +38,11 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 - **Дисковод:** интерфейс Philips VY-0010 (контроллер WD1793 и его Disk ROM) в слоте 1 вместо
   картриджа A, образы `.dsk` на 360 или 720 КБ. После монтирования образ в фоне копируется в SRAM
   платы, поэтому дисковод работает со скоростью настоящего; запись идёт в SRAM и сразу в файл образа.
+- **Nextor на образе жёсткого диска:** интерфейс SD MSX1FPGA в слоте 1 (вместо картриджа A или
+  дисковода) с его драйвером Nextor, на файле образа (`.img`, `.hdd`, `.vhd`, `.dsk`) на SD-карте
+  платы: ядро отвечает как SD-карта, секторы идут из образа через прошивку. ROM Nextor — файл
+  (`NEXTOR.ROM` из MSX1FPGA, `Support/SD/MSX1FPGA`), в ядро не встроен. Файлы `.dsk` со своего
+  FAT-раздела Nextor монтирует сам.
 - **Кассета:** файлы `.cas` (до 256 КБ) проигрываются на вход магнитофона MSX со скоростью 2400 бод,
   пока PPI включает мотор, как с настоящим магнитофоном (`RUN"CAS:"`, `BLOAD"CAS:",R`, `CLOAD`).
   Вместо файла входом может быть вывод TAPE_IN платы (настоящий магнитофон), на TAPE_OUT — выход
@@ -47,19 +52,20 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 - **Управление:** USB-клавиатура как клавиатура MSX, два джойстика MSX: джойстики платы или
   USB-геймпады.
 
-Пока нет (см. `docs/BACKLOG.md`): SCC MegaRAM, Nextor на
-образе жёсткого диска, сохранение памяти Game Master 2 и других картриджей с батарейкой.
+Пока нет (см. `docs/BACKLOG.md`): SCC MegaRAM, FM-PAC, сохранение памяти Game Master 2 и других
+картриджей с батарейкой.
 
 ## Как начать
 
 1. Скопируйте `msx.kg1` (Go), `msx.kg2` (Mini) или `msx.kg3` (Mini G) в корень SD-карты.
 2. Положите файлы в папку `/msx` на SD-карте: картриджи (`.rom`, `.mx1`, `.mx2`, `.bin`), образы
-   дисков (`.dsk`), кассеты (`.cas`), BIOS (`.rom`).
+   дисков (`.dsk`), кассеты (`.cas`), BIOS (`.rom`), `NEXTOR.ROM` и образы жёстких дисков.
 3. Выберите MSX1 в меню ядер, откройте OSD (Menu+Esc) и загрузите картридж пунктом Cart A (Menu+F1).
    Машина запускает картридж сразу после загрузки.
 
 Для дисков и кассет нужен настоящий BIOS MSX (пункт BIOS): C-BIOS зависает в INIT Disk ROM.
-Диск: Machine > Slot 1 = Disk drive, затем `.dsk` в Disk A. Кассета: `.cas` в Tape, затем `RUN"CAS:"`
+Диск: Machine > Slot 1 = Disk drive, затем `.dsk` в Disk A. Nextor: Machine > Slot 1 = Nextor, затем
+образ в HDD (Nextor тоже нужен настоящий BIOS). Кассета: `.cas` в Tape, затем `RUN"CAS:"`
 (программы на BASIC), `BLOAD"CAS:",R` (машинный код) или `CLOAD` + `RUN`; Tape rewind ставит файл
 на начало.
 
@@ -72,26 +78,29 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 | Пункт | Значения | Клавиши |
 |---|---|---|
 | Cart A | картридж в слот 1 (виден при Slot 1 = Cartridge A) | Menu+F1 |
+| Disk A | образ `.dsk` дисковода (виден при Slot 1 = Disk drive) | Menu+F3 |
+| HDD | образ жёсткого диска для Nextor (виден при Slot 1 = Nextor) | Menu+F5 |
 | Cart B | картридж в слот 2 | Menu+F2 |
-| Disk A | образ `.dsk` дисковода (виден, когда в Slot 1 дисковод) | Menu+F3 |
 | Tape | файл `.cas` (серый при Tape input = Tape in) | Menu+F4 |
 | Tape rewind | кассета на начало (как Tape) | Menu+R |
 | Video | PAL 50Hz / NTSC 60Hz | Menu+V |
 | Joysticks | Normal / Swap | Menu+J |
+| **Machine** ► | | |
 | Reset | сброс MSX | F12 |
 | Eject carts | вынуть оба картриджа (и сброс) | Menu+E |
-| **Machine** ► | | |
-| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K (серый, когда в Slot 1 дисковод) | |
+| *Machine:* Slot 1 | Cartridge A / Disk drive / Nextor | Menu+D |
+| Slot 1 ROM | On / Off (серый при Cartridge A) | |
+| Mapper A | Auto / None / Game Master 2 / Konami / Konami SCC / ASCII 8 / ASCII 16 / Linear 64K (серый, когда в Slot 1 не Cartridge A) | |
 | Mapper B | как Mapper A | |
-| Slot 1 | Cartridge A / Disk drive / Disk (no ROM) | Menu+D |
-| Tape input | CAS file / Tape in (TAPE_IN) | |
 | RAM | 512K mapper / 64K | |
 | FM (MSX-MUSIC) | On / Off | |
+| Tape input | CAS file / Tape in (TAPE_IN) | |
 | BIOS | файл BIOS, загружается при каждом старте | |
+| Nextor ROM | ROM Nextor (128 КБ), загружается при каждом старте (по умолчанию `NEXTOR.ROM`) | |
 
-«Menu» — клавиша Windows на клавиатуре. Загрузка картриджа или BIOS, смена маппера или Slot 1
-сбрасывают машину; загрузка кассеты — нет. Disk (no ROM) — дисковод без Disk ROM (только его
-регистры), для тестовых программ, которые сами управляют контроллером под C-BIOS.
+«Menu» — клавиша Windows на клавиатуре. Загрузка картриджа, BIOS или ROM Nextor, смена маппера,
+Slot 1, RAM или FM сбрасывают машину; загрузка кассеты — нет. Slot 1 ROM = Off оставляет дисковод или
+интерфейс SD без ROM (только регистры), для тестовых программ, которые сами управляют ими под C-BIOS.
 
 ## Клавиатура
 

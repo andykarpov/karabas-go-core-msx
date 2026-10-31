@@ -23,6 +23,7 @@
 | `cv_clock.vhd` | VHDL | 3,58 МГц из 10,7 МГц | нет |
 | `io_decoder.v`, `memory_mapper.v` | Verilog | порты I/O, первичные слоты | `memory_mapper`: регистр `enable` на `clk` |
 | `ram_mapper.v` | Verilog | — | **свой** (Ф5): memory mapper RAM слота 3, порты FC–FF, 512 КБ (32 сегмента по 16 КБ) |
+| `nextor_sd.v` | Verilog | — | **свой** (Ф5): интерфейс SD MSX1FPGA (`src/peripheral/msxsd.vhd`, `e5e4720`: адреса, банки, статус) для его драйвера Nextor, с эмулятором SD-карты на образе `img_sdc` вместо SPI |
 | `jtopl/` (из [jotego/jtopl](https://github.com/jotego/jtopl) `7ac0c81`, GPL v3; файлы `jt2413` из `cfg/jt2413.yaml`, импорт `94a506f` без изменений) | Verilog | OPLL YM2413 (MSX-MUSIC), Ф5 | `jtopll_reg_ch.v`: убрано `i <= 0` (XST: смесь блокирующих и неблокирующих присваиваний) |
 | `ls74.v` (был `.sv`) | SV → свой Verilog | 74LS74 для WAIT и строба PSG | переписан на `clk` с enable (upstream тактировался `clk_en_3m58_p`) |
 | `slots.v` (`sv2v`) | SV | слоты 1–3, картриджи A / B, FDD | RAM слота 3 и ROM картриджа — в SRAM; `last_loadRom` на `clk`; вход `fdd_rom_en` |

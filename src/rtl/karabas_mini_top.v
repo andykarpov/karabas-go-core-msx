@@ -15,13 +15,15 @@
  the OSD, HDMI), clk_8 8.0 MHz (/75, FT_CLK_OUT: the FT812 must always have its clock, see
  karabas-go-notes ft-clk-out-required). HDMI: kg_dcm 5 x clk_vga and its inverse.
 
- Soft switches (the index of the item in the osd of core_mini.json, file items included; the pages of the
- menu do not change it: 16 separator, 17 the page entry Machine, not registers):
-   0 Cart A (FL 4)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
-   disk drive without its ROM)
-   5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Tape input (CAS file / TAPE_IN)
-   9 RAM (512K mapper / 64K)   10 FM (MSX-MUSIC on / off)   11 Video (PAL / NTSC)
-   12 Joysticks (swap)   13 BIOS (FL 2)   14 Reset   15 Eject carts
+ Soft switches (the index of the item in the osd of core_mini.json, file items included; the
+ pages of the menu do not change it; separators and the page entry are not registers):
+   main page: 0 Cart A (FL 4)   1 Disk A (F 0)   2 HDD (F 6, Nextor)   3 Cart B (FL 1)
+   4 Tape (FL 3, .cas)   5 Tape rewind   6 -   7 Video (PAL / NTSC)   8 Joysticks (swap)   9 -
+   10 Machine (page 1)   11 Reset   12 Eject carts
+   page Machine: 13 Slot 1 (cartridge A / disk drive / Nextor)   14 Slot 1 ROM (on / off: the disk
+   ROM or the Nextor ROM reads FF, for tests under C-BIOS)   15 Mapper A   16 Mapper B   17 -
+   18 RAM (512K mapper / 64K)   19 FM (MSX-MUSIC on / off)   20 Tape input (CAS file / TAPE_IN)
+   21 -   22 BIOS (FL 2)   23 Nextor ROM (FL 5)
 */
 
 module karabas_mini_top (
@@ -320,25 +322,26 @@ assign SD_CLK = MCU_SCK;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [16*8-1:0] sw;
-kg_soft_switches #(.N(16)) soft_switches (
+wire [21*8-1:0] sw;
+kg_soft_switches #(.N(21)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
 	.upd()
 );
-wire [3:0] sw_mapper_a = sw[1*8 +: 4];
-wire [3:0] sw_mapper_b = sw[3*8 +: 4];
-wire sw_fdd = sw[4*8 +: 2] != 2'd0;
-wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
-wire sw_tape_rewind = sw[7*8];
-wire sw_tape_line = sw[8*8];
-wire sw_ram64 = sw[9*8];
-wire sw_no_fm = sw[10*8];
-wire sw_ntsc = sw[11*8];
-wire sw_joy_swap = sw[12*8];
-wire sw_reset = sw[14*8];
-wire sw_eject = sw[15*8];
+wire sw_tape_rewind = sw[5*8];
+wire sw_ntsc = sw[7*8];
+wire sw_joy_swap = sw[8*8];
+wire sw_reset = sw[11*8];
+wire sw_eject = sw[12*8];
+wire sw_fdd = sw[13*8 +: 2] == 2'd1;
+wire sw_nextor = sw[13*8 +: 2] == 2'd2;
+wire sw_slot1_rom = ~sw[14*8];
+wire [3:0] sw_mapper_a = sw[15*8 +: 4];
+wire [3:0] sw_mapper_b = sw[16*8 +: 4];
+wire sw_ram64 = sw[18*8];
+wire sw_no_fm = sw[19*8];
+wire sw_tape_line = sw[20*8];
 
 // ------------------------------------------------------------------ the machine
 
@@ -369,7 +372,8 @@ msx_system msx (
 	.tape_out(TAPE_OUT),
 	.eject(sw_eject),
 	.fdd(sw_fdd),
-	.fdd_rom_en(sw_fdd_rom),
+	.fdd_rom_en(sw_slot1_rom),
+	.nextor(sw_nextor),
 	.ram_mapper(~sw_ram64),
 	.opll(~sw_no_fm),
 	.img_mounted(img_mounted),
