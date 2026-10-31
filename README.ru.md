@@ -25,6 +25,9 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 
 - **MSX1 из MSX1_MiSTer:** Z80 (T80), видеопроцессор TMS9918 (vdp18), звук AY-3-8910 (jt49), PPI,
   512 КБ RAM в слоте 3 с memory mapper MSX2 (порты FC–FF; пункт OSD RAM, 64K — обычные 64 КБ MSX1).
+- **MSX-MUSIC:** OPLL (YM2413, [jt2413](https://github.com/jotego/jtopl)) в портах 7C–7D, как
+  встроенный MSX-MUSIC поздних машин: без картриджа B в слоте 2 видна сигнатура его ROM (`APRLOPLL`),
+  по ней игры его находят. Пункт OSD FM (MSX-MUSIC) его выключает.
 - **BIOS:** в ядро встроен [C-BIOS](http://cbios.sourceforge.net/) 0.29a (европейская версия с
   логотипом). Он запускает картриджи, но в нём нет BASIC и процедур кассеты и дисковода. Для BASIC,
   дисков и кассет загрузите BIOS настоящего MSX1 пунктом OSD BIOS (32 КБ или 48 КБ с ROM страницы 2
@@ -44,7 +47,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 - **Управление:** USB-клавиатура как клавиатура MSX, два джойстика MSX: джойстики платы или
   USB-геймпады.
 
-Пока нет (см. `docs/BACKLOG.md`): SCC MegaRAM, OPLL (MSX-MUSIC), Nextor на
+Пока нет (см. `docs/BACKLOG.md`): SCC MegaRAM, Nextor на
 образе жёсткого диска, сохранение памяти Game Master 2 и других картриджей с батарейкой.
 
 ## Как начать
@@ -74,6 +77,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 | Tape rewind | кассета на начало | Menu+R |
 | Tape input | CAS file / Tape in (TAPE_IN) | |
 | RAM | 512K mapper / 64K | |
+| FM (MSX-MUSIC) | On / Off | |
 | Video | PAL 50Hz / NTSC 60Hz | Menu+V |
 | Joysticks | Normal / Swap | Menu+J |
 | BIOS | файл BIOS, загружается при каждом старте | |
@@ -118,11 +122,11 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 
 - [MSX1_MiSTer](https://github.com/MiSTer-devel/MSX1_MiSTer): molekula и участники MiSTer (машина,
   слоты и мапперы, дисковый интерфейс VY-0010 / WD1793, проигрыватель CAS).
-- T80: Daniel Wallner, MikeJ, Sorgelig и другие. vdp18: Arnim Laeuger. jt49 и jt8255: Jose Tejada.
+- T80: Daniel Wallner, MikeJ, Sorgelig и другие. vdp18: Arnim Laeuger. jt49, jt8255 и jt2413 (jtopl): Jose Tejada.
 - [C-BIOS](http://cbios.sourceforge.net/): команда C-BIOS.
 - Платы Karabas Go и порт: Andy Karpov.
 
 Ядро распространяется под GNU GPL v3 (`LICENSE`). Его части сохраняют свои лицензии, совместимые с
-ней: MSX1_MiSTer — GPL v2 или новее, jt49 — GPL v3, T80 и vdp18 — лицензии в стиле BSD, jt8255 — MIT,
+ней: MSX1_MiSTer — GPL v2 или новее, jt49 и jtopl — GPL v3, T80 и vdp18 — лицензии в стиле BSD, jt8255 — MIT,
 C-BIOS — BSD из двух пунктов (`src/roms/LICENSE.cbios`; ROM C-BIOS встроены в файлы ядра). Disk ROM
 VY-0010 (`src/rtl/msx/rom`) взят из MSX1_MiSTer.

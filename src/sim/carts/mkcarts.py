@@ -14,8 +14,13 @@ that segment 32 is segment 0; it prints the number of good segments in hex:
     RAMMAP 20 OK
 With the RAM of 64 KB (sim_sys --ram64) the ports do nothing and it must fail.
 
+fmtest.rom (16 KB, no mapper, for cartridge A) tests the OPLL: it looks for "APRLOPLL" at 4018 of
+slot 2 with RDSLT (the MSX-MUSIC signature the core shows there without cartridge B), prints
+"FM OK" or "FM NONE", then keys on a note (violin) on the OPLL at the ports 7C-7D: the audio
+output is loud with the OPLL (sim_sys --audio-min) and quiet without it (--no-opll, --audio-max).
+
 usage: mkcarts.py OUTDIR      (writes konami.rom, konami_scc.rom, ascii8.rom, ascii16.rom, keys.rom,
-                               rammap.rom)
+                               rammap.rom, fmtest.rom)
 """
 import os
 import subprocess
@@ -236,6 +241,72 @@ bad:	db	" FAIL", 0
 """
 
 
+FMTEST = """
+CHPUT	equ	0x00A2
+RDSLT	equ	0x000C
+	org	0x4000
+	db	"AB"
+	dw	start
+	ds	12, 0
+start:
+	ld	sp, 0xF380
+	ld	hl, 0x4018
+	ld	de, sig
+	ld	b, 8
+find:	push	bc
+	push	de
+	ld	a, 2		; slot 2, not expanded
+	call	RDSLT
+	pop	de
+	pop	bc
+	ld	c, a
+	ld	a, (de)
+	cp	c
+	jr	nz, none
+	inc	hl
+	inc	de
+	djnz	find
+	ld	hl, ok
+	jr	result
+none:	ld	hl, nofm
+result:	call	print
+	di
+	ld	bc, 0x3010	; instrument 1 (violin), volume 0 (the loudest)
+	call	opll
+	ld	bc, 0x10AC	; F-number low
+	call	opll
+	ld	bc, 0x2019	; key on, block 4, F-number bit 8
+	call	opll
+stop:	jr	stop
+
+; OPLL register B = C, with the waits of the YM2413 (12 / 84 cycles of 3.58 MHz)
+opll:	ld	a, b
+	out	(0x7C), a
+	ld	a, 4
+w1:	dec	a
+	jr	nz, w1
+	ld	a, c
+	out	(0x7D), a
+	ld	a, 30
+w2:	dec	a
+	jr	nz, w2
+	ret
+
+print:	ld	a, (hl)
+	or	a
+	ret	z
+	push	hl
+	call	CHPUT
+	pop	hl
+	inc	hl
+	jr	print
+
+sig:	db	"APRLOPLL"
+ok:	db	"FM OK", 0
+nofm:	db	"FM NONE", 0
+"""
+
+
 def plain(out, name, text):
     """a 16 KB cartridge without a mapper"""
     src = os.path.join(out, name + '.asm')
@@ -252,6 +323,7 @@ def main():
     # keys.rom: prints the keys it gets (the keyboard test of carts.txt)
     plain(out, 'keys', KEYS)
     plain(out, 'rammap', RAMMAP)
+    plain(out, 'fmtest', FMTEST)
     for name, bank, init, reg in MAPPERS:
         src = os.path.join(out, name.lower() + '.asm')
         raw = os.path.join(out, name.lower() + '.bin')

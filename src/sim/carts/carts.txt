@@ -4,6 +4,8 @@
 # ASCII 8 mapper, which must not reach OK (its init writes 6000 and maps its own code away).
 # rammap: the memory mapper of the RAM, "RAMMAP 20 OK"; rammap64 the same with the RAM of 64 KB,
 # which must show "RAMMAP 00 FAIL".
+# fm: "FM OK" (the MSX-MUSIC signature in slot 2) and a note of the OPLL on the audio output; fm_off
+# the same with the OPLL off: "FM NONE" and silence (sim_sys --audio-min / --audio-max).
 konami      konami.rom      0 200 5ce4052c
 konami_scc  konami_scc.rom  0 200 f608e9ab
 ascii8      ascii8.rom      0 200 9260ae50
@@ -11,3 +13,5 @@ ascii16     ascii16.rom     0 200 9cfa9a8f
 wrong       konami.rom      5 200 efe92f55
 rammap      rammap.rom      0 200 15b5c173
 rammap64    rammap.rom      0 200 d2f0a01e --ram64
+fm          fmtest.rom      0 200 855b4a95 --audio-min 2000
+fm_off      fmtest.rom      0 200 3baa5e8b --no-opll --audio-max 100

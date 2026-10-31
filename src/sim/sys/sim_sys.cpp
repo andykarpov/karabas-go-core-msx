@@ -1,7 +1,7 @@
 // sim_sys: tb_sys (msx_system + msx_video + SRAM model) under verilator.
 //
 //   sim_sys --rom FILE:ADDR ... [--cart FILE] [--cart-b FILE] [--bios FILE] [--mapper-a N]
-//           [--pal] [--ram64] [--frames N] [--ppm OUT] [--every N] [--key F:CODE[,CODE]] [--hash]
+//           [--pal] [--ram64] [--no-opll] [--audio-min N] [--audio-max N] [--frames N] [--ppm OUT] [--every N] [--key F:CODE[,CODE]] [--hash]
 //           [--disk FILE.dsk [--fdd-latency MS] [--fdd-drop N] [--save-disk OUT]]
 //
 // The ROMs go in through the ROM loader of the mcu (rom_active, one byte every 12 clocks, as a
@@ -10,7 +10,10 @@
 // (25.0 MHz), as the PLL of the tops. A frame is a vsync of the 640 x 480 output; --ppm writes the
 // output frame after the last one (or every N with --every, OUT-<n>.ppm). --hash prints a
 // CRC-32 of each written frame. --key F:CODE sends the PS/2 set 2 codes (hex) at frame F, a
-// release (F0 code) 5 frames later. --ram64: the RAM of 64 KB, without the memory mapper. --disk: slot 1 is the disk drive with this image on a model of the
+// release (F0 code) 5 frames later. --ram64: the RAM of 64 KB, without the memory mapper. --no-opll:
+// the OPLL (MSX-MUSIC) off. The range of the audio output (max - min) in the last 20 frames is
+// printed at the end ("audio range N"), with FAIL after it when it is below --audio-min or above
+// --audio-max. --disk: slot 1 is the disk drive with this image on a model of the
 // file mounter of the firmware (mcu_clk); SIM_FDD=1 logs its requests.
 #include <cstdio>
 #include <cstdlib>
@@ -260,7 +263,8 @@ int main(int argc, char **argv) {
 	std::vector<std::pair<std::string, uint32_t>> roms;
 	std::string cart_a, cart_b, bios, ppm;
 	int nframes = 60, every = 0, mapper_a = 0;
-	bool pal = false, hash = false, fdd = false, ram64 = false;
+	bool pal = false, hash = false, fdd = false, ram64 = false, no_opll = false;
+	int audio_min = -1, audio_max = -1;
 	std::string save_disk, cas;
 	std::map<int, std::vector<int>> keys;
 	for (int i = 1; i < argc; i++) {
@@ -273,6 +277,9 @@ int main(int argc, char **argv) {
 		else if (a == "--mapper-a") mapper_a = atoi(next().c_str());
 		else if (a == "--pal") pal = true;
 		else if (a == "--ram64") ram64 = true;
+		else if (a == "--no-opll") no_opll = true;
+		else if (a == "--audio-min") audio_min = atoi(next().c_str());
+		else if (a == "--audio-max") audio_max = atoi(next().c_str());
 		else if (a == "--disk") { disk = load(next().c_str()); fdd = true; }
 		else if (a == "--fdd-latency") fdd_latency = atof(next().c_str()) * 42857;
 		else if (a == "--fdd-drop") { fdd_drop = atoi(next().c_str()); if (!fdd_drop) fdd_drop = -1; }
@@ -304,6 +311,7 @@ int main(int argc, char **argv) {
 	top->fdd = fdd;
 	top->fdd_rom_en = !getenv("SIM_NO_DISKROM");
 	top->ram_mapper = !ram64;
+	top->opll = !no_opll;
 	top->eval();
 	clk_cycles(100);
 	for (auto &r : roms) rom_load(load(r.first.c_str()), r.second);
@@ -332,9 +340,11 @@ int main(int argc, char **argv) {
 	std::map<int, std::vector<int>> release;
 	bool upd = false;
 	int last = -1;
+	int amin = 32767, amax = -32768;
 	while (frames - f0 < nframes) {
 		tick();
 		int f = frames - f0;
+		if (f >= nframes - 20) { int a = (int16_t)top->audio; if (a < amin) amin = a; if (a > amax) amax = a; }
 		if (f != last) {
 			last = f;
 			if (getenv("SIM_ISR")) { printf("frame %d isr %d\n", f, isr_cnt); isr_cnt = 0; }
@@ -353,6 +363,11 @@ int main(int argc, char **argv) {
 		}
 	}
 	printf("%d frames, %llu clk\n", nframes, (unsigned long long)clks);
+	{
+		int r = amax - amin;
+		bool bad = (audio_min >= 0 && r < audio_min) || (audio_max >= 0 && r > audio_max);
+		printf("audio range %d%s\n", r, bad ? " FAIL" : "");
+	}
 	if (fdd) printf("fdd: %d requests, %.1f ms waiting for the mcu\n", fdd_reqs, fdd_busy_clk / 42857.0);
 	if (!save_disk.empty()) { FILE *f = fopen(save_disk.c_str(), "wb"); fwrite(disk.data(), 1, disk.size(), f); fclose(f); }
 	delete top;

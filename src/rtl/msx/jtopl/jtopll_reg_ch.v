@@ -111,7 +111,7 @@ always @(posedge clk, posedge rst) begin
             reg_vol  [i] <= 0;
         end
     end else if(cen) begin
-        i <= 0;
+        // karabas: "i <= 0;" removed: i is the loop variable of the reset (blocking), XST rejects the mix
         if( up_fnumlo ) reg_fnum[up_ch][7:0] <= din;
         if( up_fnumhi ) { reg_sus[up_ch], reg_keyon[up_ch], reg_block[up_ch], reg_fnum[up_ch][8] } <= din[5:0];
         if( up_inst   ) { reg_inst[up_ch], reg_vol[up_ch] } <= din;
