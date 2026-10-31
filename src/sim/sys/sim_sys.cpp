@@ -3,6 +3,7 @@
 //   sim_sys --rom FILE:ADDR ... [--cart FILE] [--cart-b FILE] [--bios FILE] [--mapper-a N]
 //           [--pal] [--ram64] [--no-opll] [--audio-min N] [--audio-max N] [--frames N] [--ppm OUT] [--every N] [--key F:CODE[,CODE]] [--hash]
 //           [--disk FILE.dsk [--fdd-latency MS] [--fdd-drop N] [--save-disk OUT]]
+//           [--nextor [--nextor-rom FILE]] [--hdd FILE [--save-hdd OUT]] [--no-slot1-rom]
 //
 // The ROMs go in through the ROM loader of the mcu (rom_active, one byte every 12 clocks, as a
 // burst at 32 MHz), the files through the file loader (FL slot 4 = cartridge A, 1 = B, 2 = BIOS).
@@ -14,7 +15,9 @@
 // the OPLL (MSX-MUSIC) off. The range of the audio output (max - min) in the last 20 frames is
 // printed at the end ("audio range N"), with FAIL after it when it is below --audio-min or above
 // --audio-max. --disk: slot 1 is the disk drive with this image on a model of the
-// file mounter of the firmware (mcu_clk); SIM_FDD=1 logs its requests.
+// file mounter of the firmware (mcu_clk); SIM_FDD=1 logs its requests. --nextor: slot 1 is the SD
+// interface for Nextor (its ROM from FL slot 5 with --nextor-rom), --hdd: the hard disk image of
+// F slot 6 on the same model. --no-slot1-rom: the ROM of slot 1 (disk ROM, Nextor ROM) reads FF.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -58,6 +61,9 @@ static bool dbg = getenv("SIM_DBG") != 0;
 // fdd_latency clk with 512 bytes (one per 11 clk, a burst at 32 MHz), the sum, the result; a write
 // is taken with its bytes and sum and answered after fdd_latency.
 static std::vector<uint8_t> disk;
+static std::vector<uint8_t> hdd;      // F slot 6 (Nextor)
+static std::vector<uint8_t> *img = &disk; // the image of the request
+static int hdd_mount_at = -1;
 static int fdd_latency = 0;           // clk
 static int fdd_drop = -1;             // the number of the request whose answer is lost
 static int fdd_reqs = 0;
@@ -97,6 +103,11 @@ static void mcu_clk() {
 		mount_clk = clks;
 		fill_reported = false;
 		if (fdd_log) printf("mcu: mount %zu bytes\n", disk.size());
+	} else if (hdd_mount_at >= 0 && (int64_t)clks >= hdd_mount_at) {
+		top->img_size = hdd.size();
+		top->img_mounted = 1 << 6;
+		hdd_mount_at = -1;
+		if (fdd_log) printf("mcu: mount slot 6, %zu bytes\n", hdd.size());
 	}
 	if (!fill_reported && mount_clk && !top->fdd_filling && top->fdd_filled) {
 		fill_reported = true;
@@ -114,6 +125,7 @@ static void mcu_clk() {
 		else if (c == 0x43) {
 			fdd_reqs++;
 			mcu_op = d;
+			img = a == 6 ? &hdd : &disk;
 			mcu_req_clk = clks;
 			mcu_wcnt = 0; mcu_wsum_parts = 0; mcu_wsum = 0;
 			if (fdd_log && (fdd_log_all || d != 1 || fdd_reqs <= 3)) printf("mcu: %s lba %u (request %d, %.1f ms)\n", d == 1 ? "read" : "write", mcu_lba, fdd_reqs, clks / 42857.0);
@@ -137,8 +149,8 @@ static void mcu_clk() {
 		else if (mcu_op == 2) {
 			uint16_t sum = 0;
 			for (int i = 0; i < 512; i++) sum += mcu_wbuf[i];
-			bool ok = mcu_wcnt == 512 && sum == mcu_wsum && (size_t)(mcu_lba + 1) * 512 <= disk.size();
-			if (ok) memcpy(&disk[mcu_lba * 512], mcu_wbuf, 512);
+			bool ok = mcu_wcnt == 512 && sum == mcu_wsum && (size_t)(mcu_lba + 1) * 512 <= img->size();
+			if (ok) memcpy(&(*img)[mcu_lba * 512], mcu_wbuf, 512);
 			if (fdd_log) printf("mcu: write lba %u %s\n", mcu_lba, ok ? "done" : "ERROR");
 			fdd_busy_clk += clks - mcu_req_clk;
 			mcu_answer(ok);
@@ -146,12 +158,12 @@ static void mcu_clk() {
 		}
 	}
 	if (mcu_pos >= 0) {
-		bool in = (size_t)(mcu_lba + 1) * 512 <= disk.size() && mcu_lba_bytes == 4;
+		bool in = (size_t)(mcu_lba + 1) * 512 <= img->size() && mcu_lba_bytes == 4;
 		if (mcu_pos < 512) {
 			if (in && ++mcu_gap >= 11) {
 				mcu_gap = 0;
 				top->img_data_addr = mcu_pos;
-				top->img_data = disk[mcu_lba * 512 + mcu_pos];
+				top->img_data = (*img)[mcu_lba * 512 + mcu_pos];
 				top->img_data_wr = 1;
 				mcu_pos++;
 			}
@@ -159,7 +171,7 @@ static void mcu_clk() {
 		}
 		else {
 			uint16_t sum = 0;
-			if (in) for (int i = 0; i < 512; i++) sum += disk[mcu_lba * 512 + i];
+			if (in) for (int i = 0; i < 512; i++) sum += (*img)[mcu_lba * 512 + i];
 			top->img_sum = sum;
 			mcu_answer(in);
 			fdd_busy_clk += clks - mcu_req_clk;
@@ -177,7 +189,7 @@ static void tick() {
 	bool vga_rise = false;
 	if (ticks % 12 == 0) { top->clk_vga = !top->clk_vga; step = true; vga_rise = top->clk_vga; }
 	if (step) top->eval();
-	if (clk_rise && !disk.empty()) mcu_clk();
+	if (clk_rise && (!disk.empty() || !hdd.empty())) mcu_clk();
 	if (dbg && top->dbg_border != dbg_b) { printf("frame %d y %d border %d\n", frames, top->dbg_y, top->dbg_border); dbg_b = top->dbg_border; }
 	{ bool isr = !top->cpu_m1_n && top->cpu_a == 0x38; if (isr && !prev_isr) isr_cnt++; prev_isr = isr; }
 	if (kbdbg_from >= 0 && frames >= kbdbg_from && top->dbg_kb_row != dbg_row) { dbg_row = top->dbg_kb_row; printf("frame %d row %d kb %02x\n", frames, dbg_row, top->dbg_kb); }
@@ -265,7 +277,8 @@ int main(int argc, char **argv) {
 	int nframes = 60, every = 0, mapper_a = 0;
 	bool pal = false, hash = false, fdd = false, ram64 = false, no_opll = false;
 	int audio_min = -1, audio_max = -1;
-	std::string save_disk, cas;
+	std::string save_disk, cas, save_hdd, nextor_rom;
+	bool nextor = false, no_slot1_rom = false;
 	std::map<int, std::vector<int>> keys;
 	for (int i = 1; i < argc; i++) {
 		std::string a = argv[i];
@@ -284,6 +297,11 @@ int main(int argc, char **argv) {
 		else if (a == "--fdd-latency") fdd_latency = atof(next().c_str()) * 42857;
 		else if (a == "--fdd-drop") { fdd_drop = atoi(next().c_str()); if (!fdd_drop) fdd_drop = -1; }
 		else if (a == "--save-disk") save_disk = next();
+		else if (a == "--nextor") nextor = true;
+		else if (a == "--nextor-rom") nextor_rom = next();
+		else if (a == "--no-slot1-rom") no_slot1_rom = true;
+		else if (a == "--hdd") hdd = load(next().c_str());
+		else if (a == "--save-hdd") save_hdd = next();
 		else if (a == "--cas") cas = next();
 		else if (a == "--frames") nframes = atoi(next().c_str());
 		else if (a == "--ppm") ppm = next();
@@ -309,7 +327,8 @@ int main(int argc, char **argv) {
 	top->pal = pal;
 	top->joy_l = 0;
 	top->fdd = fdd;
-	top->fdd_rom_en = !getenv("SIM_NO_DISKROM");
+	top->fdd_rom_en = !getenv("SIM_NO_DISKROM") && !no_slot1_rom;
+	top->nextor = nextor;
 	top->ram_mapper = !ram64;
 	top->opll = !no_opll;
 	top->eval();
@@ -319,6 +338,8 @@ int main(int argc, char **argv) {
 	if (!cart_a.empty()) file_load(load(cart_a.c_str()), 4);
 	if (!cart_b.empty() && cas.empty()) file_load(load(cart_b.c_str()), 1);
 	if (fdd) mount_at = clks + 1000;
+	if (!hdd.empty()) hdd_mount_at = clks + 2000;
+	if (!nextor_rom.empty()) file_load(load(nextor_rom.c_str()), 5);
 	clk_cycles(2000);
 	// the CAS file after the mount: its load runs with the fill of the disk image in the SRAM
 	if (!cas.empty()) {
@@ -370,6 +391,7 @@ int main(int argc, char **argv) {
 	}
 	if (fdd) printf("fdd: %d requests, %.1f ms waiting for the mcu\n", fdd_reqs, fdd_busy_clk / 42857.0);
 	if (!save_disk.empty()) { FILE *f = fopen(save_disk.c_str(), "wb"); fwrite(disk.data(), 1, disk.size(), f); fclose(f); }
+	if (!save_hdd.empty()) { FILE *f = fopen(save_hdd.c_str(), "wb"); fwrite(hdd.data(), 1, hdd.size(), f); fclose(f); }
 	delete top;
 	return 0;
 }

@@ -49,6 +49,21 @@ module msx1
 	input         fw_rom_en,
 	input         ram_mapper_en, // karabas: the RAM of slot 3 is 512 KB with a memory mapper (ram_mapper.v)
 	input         opll_en,       // karabas: the OPLL (MSX-MUSIC, jt2413) at the ports 7C-7D
+	// karabas: slot 1 is the SD interface of MSX1FPGA for Nextor (nextor_sd.v) instead of cartridge A
+	// and the disk drive; its ROM (fdd_rom_en = 0: FF) and the hard disk image of img_sdc
+	input         nextor_en,
+	input         ioctl_isNEXTOR,
+	input         hd_mounted,
+	input  [31:0] hd_size,
+	output        hd_rd,
+	output        hd_wr,
+	output [31:0] hd_lba,
+	input         hd_busy,
+	input         hd_done,
+	input         hd_byte_in_strobe,
+	input   [8:0] hd_byte_addr,
+	input   [7:0] hd_byte_in_data,
+	output  [7:0] hd_byte_out_data,
    
 	input         img_mounted,
 	input  [31:0] img_size,
@@ -78,6 +93,7 @@ wire [7:0] d_from_8255;
 wire [7:0] ppi_out_a, ppi_out_c;
 wire CS1_n, CS01_n, CS12_n, CS2_n;
 wire [3:0] SLTSL_n;
+wire [3:0] slots_sltsl_n = { SLTSL_n[3:2], SLTSL_n[1] | nextor_en, SLTSL_n[0] }; // karabas: slot 1 off for Nextor
 // karabas: the memory of the slots goes to the SRAM (see the map below)
 wire [24:0] sdram_addr;
 wire        sdram_rd;
@@ -311,6 +327,41 @@ ram_mapper ram_mapper
 );
 
 //  -----------------------------------------------------------------------------
+//  -- karabas: Nextor in slot 1 (the SD interface of MSX1FPGA on a hard disk image)
+//  -----------------------------------------------------------------------------
+wire       nextor_sel, nextor_mem, nextor_we;
+wire [2:0] nextor_bank;
+wire [7:0] nextor_q;
+nextor_sd nextor
+(
+	.clk(clk),
+	.reset(reset),
+	.rom_en(fdd_rom_en),
+	.sltsl_n(SLTSL_n[1] | ~nextor_en),
+	.addr(a),
+	.din(d_from_cpu),
+	.rd_n(rd_n),
+	.wr_n(wr_n),
+	.sel(nextor_sel),
+	.dout(nextor_q),
+	.mem_sel(nextor_mem),
+	.mem_bank(nextor_bank),
+	.mem_we(nextor_we),
+	.mem_dout(mem_dout),
+	.img_mounted(hd_mounted),
+	.img_size(hd_size),
+	.hd_rd(hd_rd),
+	.hd_wr(hd_wr),
+	.hd_lba(hd_lba),
+	.hd_busy(hd_busy),
+	.hd_done(hd_done),
+	.hd_byte_in_strobe(hd_byte_in_strobe),
+	.hd_byte_addr(hd_byte_addr),
+	.hd_byte_in_data(hd_byte_in_data),
+	.hd_byte_out_data(hd_byte_out_data)
+);
+
+//  -----------------------------------------------------------------------------
 //  -- karabas: the OPLL (YM2413, MSX-MUSIC) at the ports 7C (register) and 7D (data), write only
 //  -----------------------------------------------------------------------------
 wire opll_cs_n = ~(opll_en & ~iorq_n & m1_n & a[7:1] == 7'b0111110);
@@ -353,6 +404,7 @@ end
 //  ----------------------------------------------------------------------------- 
 assign d_to_cpu = ~(CS01_n | SLTSL_n[0]) ? rom_q :
                   ~(CS2_n  | SLTSL_n[0]) ? fw_rom_q :
+						nextor_sel             ? nextor_q : // karabas
 						~(SLTSL_n[1])          ? d_from_slots:
 						opll_rom               ? opll_rom_q : // karabas
 						~(SLTSL_n[2])          ? d_from_slots:
@@ -443,7 +495,7 @@ slots slots
 	.CS1_n(CS1_n),    
 	.CS2_n(CS2_n),
 	.CS12_n(CS12_n),
-	.SLTSL_n(SLTSL_n),
+	.SLTSL_n(slots_sltsl_n), // karabas
 	.d_from_cpu(d_from_cpu),
 	.d_to_cpu(d_from_slots),
 	.sound(sound_slots),
@@ -485,6 +537,7 @@ slots slots
 //  -----------------------------------------------------------------------------
 // 000000 BIOS 32 KB (slot 0, 0000-7FFF)      080000 RAM 512 KB of slot 3 (ram_mapper, segment n at
 // 008000 firmware ROM 16 KB (slot 0, 8000-BFFF)   080000 + n * 16 KB; without the mapper 64 KB, segments 0-3)
+// 020000 the Nextor ROM 128 KB (nextor_sd: bank n at 020000 + n * 16 KB, RAM in 7000-7AFF of bank 7)
 // 100000 cartridge B, 200000 cartridge A, 1 MB each
 // 300000 the disk image (msx_fdd_cache, 768 KB)   3C0000 free (the tape, Ф3)
 // The cartridges are at the addresses of the MiSTer SDRAM, bit 22 = slot A; a ROM file over 1 MB
@@ -494,17 +547,20 @@ wire [21:0] cart_addr = {sdram_addr[22] ? 2'b10 : 2'b01, sdram_addr[19:0]};
 wire        ioctl_cart = ioctl_isROMA | ioctl_isROMB;
 // a BIOS file of up to 48 KB: 32 KB of BIOS and 16 KB of the ROM of slot 0 page 2, which follows
 // it in the SRAM
-wire        ioctl_mem = (ioctl_isBIOS & ioctl_addr < 25'hC000) | ioctl_isFWBIOS | (ioctl_cart & ioctl_addr[24:20] == 5'd0);
+wire        ioctl_mem = (ioctl_isBIOS & ioctl_addr < 25'hC000) | ioctl_isFWBIOS | (ioctl_cart & ioctl_addr[24:20] == 5'd0) |
+                        (ioctl_isNEXTOR & ioctl_addr[24:17] == 8'd0);
 
 assign mem_addr = ioctl_isBIOS            ? {6'h00, ioctl_addr[15:0]} :
                   ioctl_isFWBIOS          ? {8'h02, ioctl_addr[13:0]} :
+                  ioctl_isNEXTOR          ? {5'b00001, ioctl_addr[16:0]} :
                   ioctl_isROMA            ? {2'b10, ioctl_addr[19:0]} :
                   ioctl_isROMB            ? {2'b01, ioctl_addr[19:0]} :
                   ~(CS01_n | SLTSL_n[0])  ? {7'h00, a[14:0]} :
                   ~(CS2_n  | SLTSL_n[0])  ? {8'h02, a[13:0]} :
                   ~SLTSL_n[3]             ? {3'b001, ram_segment, a[13:0]} :
+                  nextor_mem              ? {5'b00001, nextor_bank, a[13:0]} :
                                             cart_addr;
-assign mem_we  = ioctl_download ? ioctl_wr & ioctl_mem : ram_we;
+assign mem_we  = ioctl_download ? ioctl_wr & ioctl_mem : ram_we | nextor_we;
 assign mem_din = ioctl_download ? ioctl_dout : d_from_cpu;
 
 endmodule

@@ -15,7 +15,8 @@
    MSX; not 0: the firmware keeps the F and FL items in one array of file slots, and slot 0 is the
    disk of the F item), 1 = cartridge B (slot 2), 2 = a BIOS file of up to 48 KB (32 KB BIOS + 16 KB of slot 0
    page 2; a file of 32 KB or less switches page 2 off, the logo ROM of C-BIOS would answer there),
-   3 = a .cas file of the cassette (msx_tape, in the SRAM from 3C0000; no reset).
+   3 = a .cas file of the cassette (msx_tape, in the SRAM from 3C0000; no reset), 5 = the Nextor ROM
+   of 128 KB (the SD interface of MSX1FPGA, in the SRAM from 020000).
    The machine is in reset while a cartridge or a BIOS file loads, as MiSTer has it. A cartridge is on from its load
    until eject.
  The disk drive (fdd: slot 1 is the Philips VY-0010 with its WD1793 and disk ROM in place of
@@ -63,6 +64,7 @@ module msx_system #(
 	input wire fdd,            // slot 1 is the disk drive (Philips VY-0010) instead of cartridge A
 	input wire ram_mapper,     // the RAM of slot 3 is 512 KB with the memory mapper (ports FC-FF), else 64 KB
 	input wire opll,           // the OPLL (MSX-MUSIC) at the ports 7C-7D, its ROM signature in slot 2 without cartridge B
+	input wire nextor,         // slot 1 is the SD interface for Nextor on the hard disk image (F slot 6) instead
 	input wire fdd_rom_en,     // its disk ROM answers (0: the FDC registers only: C-BIOS hangs in the
 	                           // INIT of the Philips disk ROM, which needs a real BIOS with BASIC)
 
@@ -129,7 +131,8 @@ wire ioctl_isROMA = file_on && file_slot == 8'd4;
 wire ioctl_isROMB = file_on && file_slot == 8'd1;
 wire ioctl_isBIOS = file_on && file_slot == 8'd2;
 wire ioctl_isCAS = file_on && file_slot == 8'd3;
-wire ioctl_download = ioctl_isROMA || ioctl_isROMB || ioctl_isBIOS;
+wire ioctl_isNEXTOR = file_on && file_slot == 8'd5;
+wire ioctl_download = ioctl_isROMA || ioctl_isROMB || ioctl_isBIOS || ioctl_isNEXTOR;
 
 reg [1:0] rom_enabled = 2'b00;
 reg fw_rom_en = 1'b1;
@@ -153,11 +156,11 @@ end
 wire [3:0] slot_a = fdd ? 4'd9 : mapper_a;
 
 // a change of the mappers or of the RAM resets the machine
-reg [9:0] mappers_d = 10'd0;
+reg [10:0] mappers_d = 11'd0;
 reg mapper_reset = 1'b0;
 always @(posedge clk) begin
-	mappers_d <= { opll, ram_mapper, mapper_b, slot_a };
-	mapper_reset <= mappers_d != { opll, ram_mapper, mapper_b, slot_a };
+	mappers_d <= { nextor, opll, ram_mapper, mapper_b, slot_a };
+	mapper_reset <= mappers_d != { nextor, opll, ram_mapper, mapper_b, slot_a };
 end
 
 wire msx_reset = reset || rom_active || ioctl_download || mapper_reset || eject;
@@ -187,6 +190,13 @@ wire [7:0] sd_buff_dout, sd_buff_din;
 
 wire [7:0] sdc_img_mounted;
 wire [63:0] sdc_img_size;
+// img_sdc (see below), declared here for msx1
+wire fdd_sdc_rd, fdd_sdc_wr, hd_sdc_rd, hd_sdc_wr;
+wire [31:0] fdd_sector, hd_sector;
+wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe;
+wire [2:0] sdc_slot;
+wire [8:0] sdc_byte_addr;
+wire [7:0] sdc_byte_in_data, fdd_byte_out_data, hd_byte_out_data;
 
 wire [21:0] mem_addr;
 wire [15:0] msx_audio;
@@ -238,6 +248,21 @@ msx1 msx1 (
 	.fw_rom_en(fw_rom_en),
 	.ram_mapper_en(ram_mapper),
 	.opll_en(opll),
+	// Nextor: the hard disk image is slot 6 of img_sdc (the firmware shares the slot numbers of the F and
+	// FL items: 0 the floppy, 1..5 the FL items)
+	.nextor_en(nextor),
+	.ioctl_isNEXTOR(ioctl_isNEXTOR),
+	.hd_mounted(sdc_img_mounted[6]),
+	.hd_size(|sdc_img_size[63:32] ? 32'hFFFFFE00 : sdc_img_size[31:0]),
+	.hd_rd(hd_sdc_rd),
+	.hd_wr(hd_sdc_wr),
+	.hd_lba(hd_sector),
+	.hd_busy(sdc_busy && sdc_slot == 3'd6),
+	.hd_done(sdc_done && sdc_slot == 3'd6),
+	.hd_byte_in_strobe(sdc_byte_in_strobe && sdc_slot == 3'd6),
+	.hd_byte_addr(sdc_byte_addr),
+	.hd_byte_in_data(sdc_byte_in_data),
+	.hd_byte_out_data(hd_byte_out_data),
 	// the disk drive: img_sdc and the copy of the image in the SRAM (msx_fdd_cache; the firmware opens the image read-write
 	// when it can and gives no write protect)
 	.img_mounted(sdc_img_mounted[0]),
@@ -256,18 +281,16 @@ msx1 msx1 (
 
 // ------------------------------------------------------------------ the disk drive
 
-wire fdd_sdc_rd, fdd_sdc_wr;
-wire [31:0] sdc_sector;
-wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe;
 wire fdd_aux_req, fdd_aux_we, fdd_aux_ack;
 wire [21:0] fdd_aux_addr;
 wire [7:0] fdd_aux_din;
 wire tape_loading;
 wire aux_ack;
 wire [7:0] aux_dout;
-wire [2:0] sdc_slot;
-wire [8:0] sdc_byte_addr;
-wire [7:0] sdc_byte_in_data, sdc_byte_out_data;
+// one request at a time, the lowest slot first (img_sdc takes the sector with the request): the
+// floppy, then the hard disk
+wire [31:0] sdc_sector = (fdd_sdc_rd || fdd_sdc_wr) ? fdd_sector : hd_sector;
+wire [7:0] sdc_byte_out_data = sdc_slot == 3'd6 ? hd_byte_out_data : fdd_byte_out_data;
 
 // no reset: a reset of the machine during a request leaves img_sdc to finish it (msx_fdd_cache
 // waits for its end); a request that gets no answer ends after the timeout
@@ -290,8 +313,8 @@ img_sdc #(
 	.img_q_ack(img_q_ack),
 	.sdc_img_mounted(sdc_img_mounted),
 	.sdc_img_size(sdc_img_size),
-	.sdc_rd({ 7'd0, fdd_sdc_rd }),
-	.sdc_wr({ 7'd0, fdd_sdc_wr }),
+	.sdc_rd({ 1'b0, hd_sdc_rd, 5'd0, fdd_sdc_rd }),
+	.sdc_wr({ 1'b0, hd_sdc_wr, 5'd0, fdd_sdc_wr }),
 	.sdc_sector(sdc_sector),
 	.sdc_busy(sdc_busy),
 	.sdc_done(sdc_done),
@@ -318,7 +341,7 @@ msx_fdd_cache #(.BASE(22'h300000), .MAXSEC(1536)) fdd_cache (
 	.sd_buff_din(sd_buff_din),
 	.sdc_rd(fdd_sdc_rd),
 	.sdc_wr(fdd_sdc_wr),
-	.sdc_sector(sdc_sector),
+	.sdc_sector(fdd_sector),
 	.sdc_busy(sdc_busy),
 	.sdc_done(sdc_done),
 	.sdc_error(sdc_error),
@@ -326,7 +349,7 @@ msx_fdd_cache #(.BASE(22'h300000), .MAXSEC(1536)) fdd_cache (
 	.sdc_byte_in_strobe(sdc_byte_in_strobe),
 	.sdc_byte_addr(sdc_byte_addr),
 	.sdc_byte_in_data(sdc_byte_in_data),
-	.sdc_byte_out_data(sdc_byte_out_data),
+	.sdc_byte_out_data(fdd_byte_out_data),
 	.pause(tape_loading),
 	.aux_req(fdd_aux_req),
 	.aux_we(fdd_aux_we),

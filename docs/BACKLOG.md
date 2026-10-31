@@ -10,9 +10,8 @@
 - ~~**OPLL**~~: сделан (MSX-MUSIC на `jt2413`, PR #8, сборка 26103105 Mini G проверена на железе).
 - **ESE-SCC MegaRAM** (SCC-картридж с RAM, загрузка образов игр Konami) и **FM-PAC** (маппер
   7FF4–7FF6, SRAM 8 КБ) — опциями OSD, если останется место после OPLL.
-- **Nextor на образе HDD**: `F`-слот 1 + интерфейс SD MSX1FPGA (`msxsd.vhd`) поверх эмулятора SPI
-  SD-карты на `img_sdc` (CMD0/8/55/41/58/17/24/18/25, R1, токены данных) — драйвер Nextor MSX1FPGA без
-  изменений. Альтернатива — прямой доступ к SD2 мимо прошивки.
+- **Nextor на образе HDD**: ветка `f5-nextor`, `nextor_sd.v` (см. «Решения» в `PLAN.md`); на железе
+  нужен настоящий BIOS MSX1 и `NEXTOR.ROM` (MSX1FPGA `Support/SD/MSX1FPGA`).
 - **Сохранения картриджей с батарейкой** (Game Master 2, ASCII 8 / 16 с SRAM): `.sav` через
   `kg_bk_ram` (caps bit 3, как у NES).
 - **Физический дисковод** Karabas Go (`F` с флагом `physical`, как у NanoMig).
