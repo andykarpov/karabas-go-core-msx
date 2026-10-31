@@ -1,7 +1,7 @@
 {
     "id": "msx",
     "name": "MSX1",
-    "build": "26103105",
+    "build": "26103106",
     "bitstream": "karabas_minig.bin",
     "visible": true,
     "type": "osd",
@@ -12,21 +12,23 @@
         {"filename": "roms/cbios_logo_msx1.rom", "address": 32768}
     ],
     "osd": [
-        {"type": "FL", "name": "Cart A", "slot": 4, "extensions": ".rom,.mx1,.mx2,.bin", "dir": "/msx", "hotkey": "Menu+F1"},
-        {"type": "S", "name": "Mapper A", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0},
+        {"type": "FL", "name": "Cart A", "slot": 4, "extensions": ".rom,.mx1,.mx2,.bin", "dir": "/msx", "hotkey": "Menu+F1", "show_if": {"item": "Slot 1", "value": "Cartridge A"}},
+        {"type": "S", "name": "Mapper A", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0, "page": 1, "enable_if": {"item": "Slot 1", "value": "Cartridge A"}},
         {"type": "FL", "name": "Cart B", "slot": 1, "extensions": ".rom,.mx1,.mx2,.bin", "dir": "/msx", "hotkey": "Menu+F2"},
-        {"type": "S", "name": "Mapper B", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0},
-        {"type": "S", "name": "Slot 1", "options": ["Cartridge A", "Disk drive", "Disk (no ROM)"], "default": 0, "hotkey": "Menu+D"},
-        {"type": "F", "name": "Disk A", "slot": 0, "extensions": ".dsk", "dir": "/msx", "hotkey": "Menu+F3"},
-        {"type": "FL", "name": "Tape", "slot": 3, "extensions": ".cas", "dir": "/msx", "hotkey": "Menu+F4"},
-        {"type": "T", "name": "Tape rewind", "hotkey": "Menu+R"},
-        {"type": "S", "name": "Tape input", "options": ["CAS file", "Tape in"], "default": 0},
-        {"type": "S", "name": "RAM", "options": ["512K mapper", "64K"], "default": 0},
-        {"type": "S", "name": "FM (MSX-MUSIC)", "options": ["On", "Off"], "default": 0},
+        {"type": "S", "name": "Mapper B", "options": ["Auto", "None", "Game Master 2", "Konami", "Konami SCC", "ASCII 8", "ASCII 16", "Linear 64K"], "default": 0, "page": 1},
+        {"type": "S", "name": "Slot 1", "options": ["Cartridge A", "Disk drive", "Disk (no ROM)"], "default": 0, "hotkey": "Menu+D", "page": 1},
+        {"type": "F", "name": "Disk A", "slot": 0, "extensions": ".dsk", "dir": "/msx", "hotkey": "Menu+F3", "show_if": {"item": "Slot 1", "value": "Cartridge A", "not": true}},
+        {"type": "FL", "name": "Tape", "slot": 3, "extensions": ".cas", "dir": "/msx", "hotkey": "Menu+F4", "enable_if": {"item": "Tape input", "value": "CAS file"}},
+        {"type": "T", "name": "Tape rewind", "hotkey": "Menu+R", "enable_if": {"item": "Tape input", "value": "CAS file"}},
+        {"type": "S", "name": "Tape input", "options": ["CAS file", "Tape in"], "default": 0, "page": 1},
+        {"type": "S", "name": "RAM", "options": ["512K mapper", "64K"], "default": 0, "page": 1},
+        {"type": "S", "name": "FM (MSX-MUSIC)", "options": ["On", "Off"], "default": 0, "page": 1},
         {"type": "S", "name": "Video", "options": ["PAL 50Hz", "NTSC 60Hz"], "default": 0, "hotkey": "Menu+V"},
         {"type": "S", "name": "Joysticks", "options": ["Normal", "Swap"], "default": 0, "hotkey": "Menu+J"},
-        {"type": "FL", "name": "BIOS", "slot": 2, "extensions": ".rom", "dir": "/msx", "autoload": 1},
+        {"type": "FL", "name": "BIOS", "slot": 2, "extensions": ".rom", "dir": "/msx", "autoload": 1, "page": 1},
         {"type": "T", "name": "Reset", "hotkey": "F12"},
-        {"type": "T", "name": "Eject carts", "hotkey": "Menu+E"}
+        {"type": "T", "name": "Eject carts", "hotkey": "Menu+E"},
+        {"type": "-"},
+        {"type": "M", "name": "Machine", "open": 1}
     ]
 }
