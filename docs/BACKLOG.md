@@ -6,7 +6,7 @@
 
 ## Ф5. Расширения
 
-- **Memory mapper**: 512 КБ в SRAM с 080000, ветка `f5-mapper` (см. «Решения» в `PLAN.md`).
+- ~~**Memory mapper**~~: сделан (512 КБ в SRAM с 080000, PR #7, сборка 26103104 Mini G проверена на железе).
 - **ESE-SCC MegaRAM** (SCC-картридж с RAM, загрузка образов игр Konami) и **OPLL** (MSX-MUSIC, `vm2413`
   из MSX1FPGA) — опциями OSD. Проверить место: сейчас ~60 % LUT / 84 % слайсов на Mini / Mini G.
 - **Nextor на образе HDD**: `F`-слот 1 + интерфейс SD MSX1FPGA (`msxsd.vhd`) поверх эмулятора SPI
