@@ -16,8 +16,8 @@
  Soft switches (the index of the item in the osd of core_minig.json, file items included):
    0 Cart A (FL 0)   1 Mapper A   2 Cart B (FL 1)   3 Mapper B   4 Slot 1 (cartridge A / disk drive /
    disk drive without its ROM)
-   5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Video (PAL / NTSC)   9 Joysticks (swap)
-   10 BIOS (FL 2)   11 Reset   12 Eject carts
+   5 Disk A (F 0)   6 Tape (FL 3, .cas)   7 Tape rewind   8 Tape input (CAS file / TAPE_IN)
+   9 Video (PAL / NTSC)   10 Joysticks (swap)   11 BIOS (FL 2)   12 Reset   13 Eject carts
 */
 
 module karabas_minig_top (
@@ -123,7 +123,6 @@ assign WWR_N = 1'b1;
 assign WRESET_N = 1'b1;
 assign WD = 16'bz;
 
-assign TAPE_OUT = 1'b0;
 assign ESP32_SPI_CS_N = 1'b1;
 assign MIDI_TX = 1'b1;
 assign UART_RX = 1'bz;
@@ -317,8 +316,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [13*8-1:0] sw;
-kg_soft_switches #(.N(13)) soft_switches (
+wire [14*8-1:0] sw;
+kg_soft_switches #(.N(14)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -329,10 +328,11 @@ wire [3:0] sw_mapper_b = sw[3*8 +: 4];
 wire sw_fdd = sw[4*8 +: 2] != 2'd0;
 wire sw_fdd_rom = sw[4*8 +: 2] != 2'd2;
 wire sw_tape_rewind = sw[7*8];
-wire sw_ntsc = sw[8*8];
-wire sw_joy_swap = sw[9*8];
-wire sw_reset = sw[11*8];
-wire sw_eject = sw[12*8];
+wire sw_tape_line = sw[8*8];
+wire sw_ntsc = sw[9*8];
+wire sw_joy_swap = sw[10*8];
+wire sw_reset = sw[12*8];
+wire sw_eject = sw[13*8];
 
 // ------------------------------------------------------------------ the machine
 
@@ -358,6 +358,9 @@ msx_system msx (
 	.pal(~sw_ntsc),
 	.joy_swap(sw_joy_swap),
 	.tape_rewind(sw_tape_rewind),
+	.tape_line(sw_tape_line),
+	.tape_in(TAPE_IN),
+	.tape_out(TAPE_OUT),
 	.eject(sw_eject),
 	.fdd(sw_fdd),
 	.fdd_rom_en(sw_fdd_rom),

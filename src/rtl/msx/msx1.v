@@ -34,6 +34,7 @@ module msx1
 	output        ioctl_wait,
 	input   [1:0] rom_enabled,
 	output        cas_motor,
+	output        cas_out,      // karabas: the cassette write data (PPI port C bit 5) for TAPE_OUT
 	input         cas_audio_in,
 	input   [3:0] slot_A,
 	input   [3:0] slot_B,
@@ -241,6 +242,7 @@ io_decoder io_decoder
 //  -----------------------------------------------------------------------------
 wire keybeep = ppi_out_c[7];
 assign cas_motor =  ppi_out_c[4];
+assign cas_out = ppi_out_c[5];  // karabas: see the port
 jt8255 PPI
 (
 	.rst(reset),
