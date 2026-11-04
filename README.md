@@ -9,9 +9,9 @@ the OSD and the file browser of the board firmware: the core has no loader of it
 
 | Board | Core file | Video | Audio |
 |---|---|---|---|
-| Karabas Go | `msx.kg1` | VGA, 640x480 60 Hz | I2S DAC (PCM5102) |
-| Karabas Mini | `msx.kg2` | HDMI, 640x480 60 Hz | HDMI, analog output (sigma-delta) |
-| Karabas Mini G | `msx.kg3` | HDMI, 640x480 60 Hz | HDMI, I2S DAC (PCM5102) |
+| Karabas Go | `msx.kg` | VGA, 640x480 60 Hz | I2S DAC (PCM5102) |
+| Karabas Mini | `msx.kg` | HDMI, 640x480 60 Hz | HDMI, analog output (sigma-delta) |
+| Karabas Mini G | `msx.kg` | HDMI, 640x480 60 Hz | HDMI, I2S DAC (PCM5102) |
 
 The core files are in `src/` and in the release repos
 ([karabas-go](https://github.com/andykarpov/karabas-go),
@@ -59,7 +59,7 @@ battery cartridges.
 
 ## Getting started
 
-1. Copy `msx.kg1` (Go), `msx.kg2` (Mini) or `msx.kg3` (Mini G) to the root of the SD card.
+1. Copy `msx.kg` (one file for Go, Mini and Mini G) to the root of the SD card.
 2. Put your files into the folder `/msx` of the SD card: cartridges (`.rom`, `.mx1`, `.mx2`, `.bin`),
    disk images (`.dsk`), tapes (`.cas`), a BIOS (`.rom`), `NEXTOR.ROM` and hard disk images.
 3. Choose MSX1 in the core menu, open the OSD with Menu+Esc and load a cartridge with Cart A

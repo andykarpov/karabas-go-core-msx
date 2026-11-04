@@ -16,14 +16,14 @@ Base (variant C, decided 2026-10-30): MiSTer MSX1 (`MiSTer-devel/MSX1_MiSTer`, b
 
 - `karabas-go-modules` (submodule `modules/`, from Ф0): `kg_mcu` (`ENABLE_IMG`), `img_sdc`, `kg_pll`, `kg_dcm`, the `kg_*` memories, `zhdmi`, `kg_osd_overlay`, the DACs. Its `CLAUDE.md` has the rules (Verilog-2001 for XST, no coregen, `ENABLE_*` parameters, clock crossings, tests). A change to them is made there and taken here by updating the submodule commit.
 - `karabas-go-firmware`: the MCU side. `docs/protocol.md` (file loader, file mounter section 6, `CMD_CAPS` section 7) and `docs/burst_protocol.md`. This port needs no firmware change for Ф0..Ф4.
-- `karabas-go-tools`: `make_core.py` packs `core.json` (Go), `core_mini.json`, `core_minig.json` into `msx.kg1` / `kg2` / `kg3`; `src/make_core.py` will be a symlink to it.
+- `karabas-go-tools`: `make_core.py` packs `core.json` (one file for all boards: the common keys, `boards` for what differs; kgo2, karabas-go-tools `docs/kgo2.md`) into `msx.kg` (`make <board>-core`: `make_core.py core.json msx.kg --boards <board>` puts that board's bitstream in); `src/make_core.py` will be a symlink to it.
 - Examples: `karabas-go-core-nes` (Makefile, `sv2v` of upstream SV, frame buffer video, `hid_parser`, burst sim), `karabas-go-core-nanomig` (`img_sdc` with a floppy, `FL` autoload of the Kickstart), `karabas-go-core-next186` (`img_sdc` + `hdf_ata`, `tb_ata` with an MCU model), `karabas-go-core-snes` (a port plan with a fit gate; the video timing lessons on the user's monitor).
 
 ## Build
 
 - `cd src && make` builds the three boards (`make go`, `make mini`, `make minig`; steps `minig-xst`, `-impl`, `-core`; `make minig-report` the utilization and timing), the ISE command-line flow, sourcing `/opt/Xilinx/14.7/ISE_DS/settings64.sh`. No `.xise`, no `ipcore_dir`. The boards share `xst/` and `_ngo/` in `src/`: one build at a time.
 - Inputs per board: `karabas_<board>.prj` (sources, the shared modules as `"../modules/rtl/..."`), `.xst`, `.ut`, `.ucf`. Map / par with cost table `-t 2` by default (`MAP_T_<board>`).
-- Check `*_map.mrp` (LUTs, slices, RAMB16) and `*.par` (timing) after a change. The `.bin` and `.kg*` files are committed as the release.
+- Check `*_map.mrp` (LUTs, slices, RAMB16) and `*.par` (timing) after a change. The `.bin` and `.kg` files are committed as the release.
 - `make msx1-xst` synthesizes the machine alone (`msx1.prj`, `msx1.xst`, `-iobuf NO`) in about a minute; `make msx1-report` prints its LUTs, registers and block RAMs. Use it to check a change of `src/rtl/msx` (errors, the one clock in "Clock Information" of `msx1.syr`, no latches) before a board build.
 - Builds take 10..30 minutes: run them in the background, one board at a time, do not edit RTL while XST runs, and do not run builds of all boards without need.
 
