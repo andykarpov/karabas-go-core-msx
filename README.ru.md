@@ -13,9 +13,8 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 | Karabas Mini | `msx.kg` | HDMI, 640x480 60 Гц | HDMI, аналоговый выход (sigma-delta) |
 | Karabas Mini G | `msx.kg` | HDMI, 640x480 60 Гц | HDMI, I2S ЦАП (PCM5102) |
 
-Файлы ядра лежат в `src/` и в релизных репозиториях
-([karabas-go](https://github.com/andykarpov/karabas-go),
-[karabas-mini](https://github.com/andykarpov/karabas-mini)).
+Файл ядра лежит в `src/` и в релизном репозитории
+[karabas-go](https://github.com/andykarpov/karabas-go) (`cores/`, один файл для всех плат).
 
 **Состояние:** сборка для Mini G проверена на железе (картриджи и игры; дисковод и кассета — тестовыми
 картриджами, с настоящим BIOS MSX пока нет). Сборки для Mini и Go сделаны из тех же исходников и на

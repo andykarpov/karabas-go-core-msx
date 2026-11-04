@@ -13,9 +13,8 @@ the OSD and the file browser of the board firmware: the core has no loader of it
 | Karabas Mini | `msx.kg` | HDMI, 640x480 60 Hz | HDMI, analog output (sigma-delta) |
 | Karabas Mini G | `msx.kg` | HDMI, 640x480 60 Hz | HDMI, I2S DAC (PCM5102) |
 
-The core files are in `src/` and in the release repos
-([karabas-go](https://github.com/andykarpov/karabas-go),
-[karabas-mini](https://github.com/andykarpov/karabas-mini)).
+The core file is in `src/` and in the release repo
+[karabas-go](https://github.com/andykarpov/karabas-go) (`cores/`, one file for all the boards).
 
 **State:** the Mini G build is tested on hardware (cartridges and games; the disk drive and the tape
 with test cartridges, not yet with a real MSX BIOS). The Mini and Go builds are made from the same sources and are not tested on hardware yet.
