@@ -9,9 +9,9 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 
 | Плата | Файл ядра | Видео | Звук |
 |---|---|---|---|
-| Karabas Go | `msx.kg1` | VGA, 640x480 60 Гц | I2S ЦАП (PCM5102) |
-| Karabas Mini | `msx.kg2` | HDMI, 640x480 60 Гц | HDMI, аналоговый выход (sigma-delta) |
-| Karabas Mini G | `msx.kg3` | HDMI, 640x480 60 Гц | HDMI, I2S ЦАП (PCM5102) |
+| Karabas Go | `msx.kg` | VGA, 640x480 60 Гц | I2S ЦАП (PCM5102) |
+| Karabas Mini | `msx.kg` | HDMI, 640x480 60 Гц | HDMI, аналоговый выход (sigma-delta) |
+| Karabas Mini G | `msx.kg` | HDMI, 640x480 60 Гц | HDMI, I2S ЦАП (PCM5102) |
 
 Файлы ядра лежат в `src/` и в релизных репозиториях
 ([karabas-go](https://github.com/andykarpov/karabas-go),
@@ -57,7 +57,7 @@ XC6SLX25 плат Karabas. Вся работа с файлами (картрид
 
 ## Как начать
 
-1. Скопируйте `msx.kg1` (Go), `msx.kg2` (Mini) или `msx.kg3` (Mini G) в корень SD-карты.
+1. Скопируйте `msx.kg` (один файл для Go, Mini и Mini G) в корень SD-карты.
 2. Положите файлы в папку `/msx` на SD-карте: картриджи (`.rom`, `.mx1`, `.mx2`, `.bin`), образы
    дисков (`.dsk`), кассеты (`.cas`), BIOS (`.rom`), `NEXTOR.ROM` и образы жёстких дисков.
 3. Выберите MSX1 в меню ядер, откройте OSD (Menu+Esc) и загрузите картридж пунктом Cart A (Menu+F1).

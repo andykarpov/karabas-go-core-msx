@@ -1,7 +1,7 @@
 # Command line build of the MSX1 core for the three boards (ISE 14.7), as the converted cores
 # (nes, tsconf) have it.
 #
-#   make                 all three boards (msx.kg1, msx.kg2, msx.kg3)
+#   make                 all the boards (msx.kg)
 #   make go|mini|minig   one board: synthesis, implementation, bitstream, .kg file
 #   make minig-xst       one step: <board>-xst (.ngc), <board>-impl (.bin), <board>-core (.kg)
 #   make minig-report    LUTs, slices, block RAMs and the timing result of the last build
@@ -24,12 +24,9 @@ SHELL = /bin/bash
 # settings64.sh takes the arguments of the shell that sources it: none here
 XIL = source $(ISE_SETTINGS) > /dev/null;
 
-KG_go = msx.kg1
-KG_mini = msx.kg2
-KG_minig = msx.kg3
-JSON_go = core.json
-JSON_mini = core_mini.json
-JSON_minig = core_minig.json
+# all boards in one file: a board build puts its bitstream in (make_core --boards)
+KG = msx.kg
+JSON = core.json
 
 # map / par options (cost table 2 by default, the rule of all the cores)
 MAP_T_go ?= 2
@@ -61,14 +58,15 @@ karabas_$(1).bin: karabas_$(1).ngc karabas_$(1).ucf karabas_$(1).ut
 	$(XIL) trce -intstyle ise -v 3 -s 2 -n 3 -fastpaths -xml karabas_$(1).twx karabas_$(1).ncd -o karabas_$(1).twr karabas_$(1).pcf -ucf karabas_$(1).ucf
 	$(XIL) bitgen -intstyle ise -f karabas_$(1).ut karabas_$(1).ncd
 
-$(KG_$(1)): karabas_$(1).bin $(JSON_$(1))
-	python3 tools/check_osd.py $(JSON_$(1))
-	python3 make_core.py $(JSON_$(1)) $$@
+kg_$(1).stamp: karabas_$(1).bin $(JSON)
+	python3 tools/check_osd.py $(JSON)
+	python3 make_core.py $(JSON) $(KG) --boards $(1)
+	touch $$@
 
-$(1): $(KG_$(1))
+$(1): kg_$(1).stamp
 $(1)-xst: karabas_$(1).ngc
 $(1)-impl: karabas_$(1).bin
-$(1)-core: $(KG_$(1))
+$(1)-core: kg_$(1).stamp
 $(1)-report:
 	@grep -E "Number of (Slice LUTs|occupied Slices|RAMB16BWERs|RAMB8BWERs):" karabas_$(1)_map.mrp
 	@grep -E "constraints? (was|were) met|constraints? not met|Timing Score" karabas_$(1).par | sort -u
@@ -85,6 +83,7 @@ msx1-report:
 	@sed -n '/Device utilization summary/,/Partition Resource Summary/p' msx1.syr | grep -E "Number of (Slice Registers|Slice LUTs|Block RAM/FIFO|DSP48)"
 
 clean:
+	rm -f kg_*.stamp
 	rm -rf xst _ngo _xmsgs xlnx_auto_0_xdb iseconfig
 	rm -f $(foreach b,$(BOARDS),$(addprefix karabas_$(b),.ngc .ngd .ngr .syr .lso .bld .pcf .ncd _map.ncd _map.ngm \
 		_map.map _map.mrp _map.xrpt .par .pad _pad.csv _pad.txt .twr .twx .unroutes .xpi .ptwx .bgn .bit .drc \
