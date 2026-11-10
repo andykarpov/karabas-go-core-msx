@@ -21,10 +21,21 @@
 
 ## Открытые вопросы и непроверенное
 
+- **Проверено на Mini G с настоящим BIOS (2026-11-10, 26111001; `MSX_INT.rom` из MSX1FPGA):** MSX BASIC;
+  Disk BASIC (`FILES`, `LOAD`, `RUN`, `SAVE`, файл в образе на карте); защита от записи (`ro.dsk` с
+  атрибутом RO — «Disk write protected»); Nextor (`A:\>`, `DIR`, запись файла, файл после сброса;
+  `NEXTOR.ROM` MSX1FPGA `e5e4720`, версия 2021 года — «Bad drive name»); Nemesis 2 (SCC). BIOS с
+  autoload затирался C-BIOS из `roms` (прошивка слала ROM после файлов FL): исправлено в прошивке
+  (karabas-go-firmware #128), проверено.
+- Образ DSK, сделанный `mformat`, с загрузочным сектором PC (`EB 3C 90` и код x86 с 0x1E) — Disk ROM
+  вызывает загрузочный код и машина перезагружается по кругу. Для тестов: `C9` по смещению 0x1E
+  (так у дисков MSX-DOS). Не ошибка ядра.
+- Nextor пишет маленький файл 10–20 с, клавиши в это время теряются: запись через MCU (`img_sdc`),
+  посмотреть, нельзя ли ускорить ответ `nextor_sd` (кэш секторов).
+
 - **С настоящим BIOS MSX1** (пользователь его достанет; на SD-карте Mini G уже есть `/msx/NEXTOR.ROM`
   и `/msx/nextor.img` — 32 МБ, MBR + FAT16 с `NEXTOR.SYS`, `COMMAND2.COM`, `DOS/`, `HELP/`):
-  1. Nextor: Machine > BIOS = дамп, Slot 1 = Nextor, Slot 1 ROM = On, HDD = `nextor.img` — заставка
-     Nextor, `A>`, `DIR`, `DIR DOS`, запись файла (`COPY CON`), перезапуск и файл на месте; смена
+  1. Nextor (основное проверено, см. выше): смена
      образа HDD во время работы (флаг смены диска); `CALL SYSTEM` / `BASIC` туда и обратно.
   2. Memory mapper под Nextor: свободная память в `A>` (`DRVINFO`, `MAPDRV`), 512K / 64K.
   3. Дисковод с Disk ROM: Slot 1 = Disk drive, Slot 1 ROM = On — Disk BASIC (`FILES`, `SAVE` /
